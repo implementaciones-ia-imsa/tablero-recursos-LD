@@ -82,7 +82,7 @@ function determinarEstadoRecurso(recurso) {
     console.log(`🔍 Recurso ${recurso.Recurso || 'N/A'}: Estado="${estado}", Operarios=${operarios}, Motivo="${motivoInterrup}"`);
 
     // Prioridad 1: Sin operario
-    if (!operarios || operarios === 0) {
+    if (!operarios || operarios === 0)  {
         console.log(`   → Sin operario`);
         return {
             estado: 'status-sin-operario',
@@ -90,6 +90,8 @@ function determinarEstadoRecurso(recurso) {
         };
     }
 
+    
+    
     // Prioridad 2: Estados de producción (comparación insensible a mayúsculas)
     if (estado.toLowerCase() === 'enproceso' || estado.toLowerCase() === 'en proceso') {
         console.log(`   → Produciendo`);
@@ -125,6 +127,7 @@ function determinarEstadoRecurso(recurso) {
         
         // Materiales (naranja)
         if (motivo.includes('falta de materia prima') || 
+            motivo.includes('falta de trabajo') ||
             motivo.includes('falta materiales') || 
             motivo.includes('retiro de material')) {
             console.log(`   → Falta Materiales`);
@@ -134,6 +137,16 @@ function determinarEstadoRecurso(recurso) {
             };
         }
         
+        // blanco falta de personal
+        if(motivo.includes('falta de personal')){
+            console.log(`   → Falta de Personal`);
+            return {
+                estado: 'status-falta-personal',
+                estadoTexto: 'Falta de Personal'
+            };
+        }
+
+
         // Set Up (amarillo)
         if (motivo.includes('cambio de medida') || 
             motivo.includes('cambio de carrete') || 

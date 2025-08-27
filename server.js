@@ -9,6 +9,11 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5490;
 
+
+
+
+
+
 // ===== CONFIGURACIÓN DE LA BASE DE DATOS =====
 const tableroConfig = {
     server: '192.168.100.164',
@@ -24,8 +29,11 @@ const tableroConfig = {
         type: 'ntlm',
         options: {
             domain: 'IMSA',
+            //userName: 'A_TCasco',
+            //password: 'Tiranytar.2023!'
             userName: 'A_TCasco',
             password: 'Tiranytar.2023!'
+
         }
     },
     pool: {
@@ -215,7 +223,8 @@ app.get('/api/recursos', async (req, res) => {
         console.log('🔄 Obteniendo recursos del tablero...');
         const connection = await connectTableroDB();
         const request = new sql.Request(connection);
-        
+        request.timeout = 60000;
+
         const result = await request.query(`
             SELECT 
                 Recurso,

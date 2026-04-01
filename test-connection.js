@@ -16,8 +16,8 @@ const tableroConfig = {
         type: 'ntlm',
         options: {
             domain: 'IMSA',
-            userName: 'A_TCasco',
-            password: 'Tiranytar.2023!'
+            userName: 'SVC_dashboard_ia',
+            password: '2!R4+F7=4hx??9^B3k'
         }
     },
     pool: {

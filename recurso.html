@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Recurso — I.M.S.A.</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --accent: #ef4444;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --vel-teo: #22c55e;
+            --vel-rea: #3b82f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ───────────────────── */
+        .header {
+            background: var(--card);
+            border-bottom: 3px solid var(--accent);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-badge {
+            background: var(--accent);
+            color: white;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .header-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .header-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ── PAGE ─────────────────────── */
+        .page {
+            padding: 28px 32px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* ── SECTION DIVIDER ──────────── */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            margin-top: 4px;
+        }
+
+        .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .sl-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .sl-period {
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* ── GRIDS ────────────────────── */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            margin-bottom: 36px;
+        }
+
+        .section-full { margin-bottom: 36px; }
+
+        /* ── CARDS ────────────────────── */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px;
+        }
+
+        .card-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 3px;
+        }
+
+        .card-sub {
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            margin-bottom: 14px;
+        }
+
+        /* ── LEGEND ───────────────────── */
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-line { width: 28px; height: 0; }
+        .legend-line.dashed { border-top: 3px dashed var(--vel-teo); }
+        .legend-line.solid  { border-top: 3px solid var(--vel-rea);  }
+
+        /* ── GAUGE ────────────────────── */
+        .gauge-canvas-wrap { position: relative; width: 100%; }
+
+        /* ── STATS ────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .stat-item {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 4px;
+        }
+
+        /* ── APROVECHAMIENTO BOX ──────── */
+        .aprov-box {
+            margin-top: 10px;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            transition: background 0.4s, border-color 0.4s;
+        }
+
+        .aprov-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .aprov-label {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+            color: var(--text-secondary);
+        }
+
+        /* ── STATE BOXES ──────────────── */
+        .state-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            gap: 10px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 32px; height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── SEMANAL ──────────────────── */
+        .chart-tip {
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 8px;
+            opacity: 0.7;
+        }
+
+        /* ── RESPONSIVE ───────────────── */
+        @media (max-width: 900px) {
+            .page { padding: 14px; }
+            .header { padding: 14px 16px; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .header-title { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <span class="header-badge">I.M.S.A.</span>
+    <div>
+        <div class="header-title">Recurso <span id="recurso-num">—</span></div>
+        <div class="header-sub">Análisis de Performance</div>
+    </div>
+</header>
+
+<div class="page" id="page-content" style="display:none">
+
+    <!-- ── SECCIÓN 1: HISTÓRICO ─────────────────────── -->
+    <div class="section-divider">
+        <span class="sl-title">Período Histórico</span>
+        <span class="sl-period">Ayer 06:00 → Hoy 06:00</span>
+    </div>
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Velocidad del Recurso</div>
+            <div class="card-sub">Velocidad Teórica vs Real · Últimas 24hs Laborables</div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-line dashed"></div><span>Vel. Teórica</span></div>
+                <div class="legend-item"><div class="legend-line solid"></div><span>Vel. Real</span></div>
+            </div>
+            <div id="hist-anomalia"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Aprovechamiento</div>
+            <div class="card-sub">Día anterior</div>
+            <div id="hist-gauge"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
+        </div>
+    </div>
+
+    <!-- ── SECCIÓN 2: INSTANTÁNEO ───────────────────── -->
+    <div class="section-divider">
+        <span class="sl-title">Instantáneo</span>
+        <span class="sl-period" id="inst-period-label">Hoy 06:00 → Hora actual</span>
+    </div>
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Velocidad del Recurso</div>
+            <div class="card-sub">Velocidad Teórica vs Real · Turno en curso</div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-line dashed"></div><span>Vel. Teórica</span></div>
+                <div class="legend-item"><div class="legend-line solid"></div><span>Vel. Real</span></div>
+            </div>
+            <div id="inst-anomalia"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Aprovechamiento</div>
+            <div class="card-sub">Día actual (en curso)</div>
+            <div id="inst-gauge"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
+        </div>
+    </div>
+
+    <!-- ── SECCIÓN 3: SEMANAL (OCULTA) ───────────────────────── -->
+    <!--
+    <div class="section-divider">
+        <span class="sl-title">Aprovechamiento Semanal</span>
+        <span class="sl-period" id="semanal-label">Mes actual</span>
+    </div>
+    <div class="section-full">
+        <div class="card">
+            <div class="card-title">Promedio semanal de aprovechamiento</div>
+            <div class="card-sub">Haga click en una barra para ver el detalle diario</div>
+            <div id="semanal-wrapper"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
+        </div>
+    </div>
+    -->
+
+    <!-- ── SECCIÓN 4: DESCARTE MENSUAL ──────────────── -->
+    <div class="section-divider">
+        <span class="sl-title">Descarte Mensual</span>
+        <span class="sl-period" id="descarte-label">Mes actual</span>
+    </div>
+    <div class="section-full">
+        <div class="card">
+            <div class="card-title">Descarte Teórico vs Informado</div>
+            <div class="card-sub">Acumulado del mes en curso por tipo de descarte</div>
+            <div id="descarte-wrapper"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Error inicial -->
+<div id="init-error" style="display:none; text-align:center; padding:60px; color:#94a3b8">
+    ⚠ Recurso no especificado.
+</div>
+
+<script>
+// ─── CONSTANTES ──────────────────────────────────────────────────
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS_ES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+const urlParams = new URLSearchParams(window.location.search);
+const recurso = urlParams.get('recurso');
+
+console.log('[recurso.html v2] Script cargado - ' + new Date().toISOString());
+
+if (!recurso) {
+    document.getElementById('init-error').style.display = 'block';
+} else {
+    document.getElementById('recurso-num').textContent = recurso;
+    document.getElementById('page-content').style.display = 'block';
+    loadAll().catch(err => {
+        console.error('[loadAll] Unhandled error:', err);
+        console.error('⚠ Error global:', err.message);
+    });
+}
+
+// ─── COLOR GRADIENT ───────────────────────────────────────────────
+function getAprovColor(pct) {
+    pct = Math.max(0, Math.min(100, pct || 0));
+
+    function mix(h1, h2, t) {
+        const p = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+        const [r1,g1,b1] = p(h1), [r2,g2,b2] = p(h2);
+        return `rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`;
+    }
+
+    if (pct <= 33)      return mix('#ef4444', '#fca5a5', pct / 33);
+    else if (pct <= 66) return mix('#fde047', '#d97706', (pct - 33) / 33);
+    else                return mix('#bbf7d0', '#15803d', (pct - 66) / 34);
+}
+
+function getAprovColors(pct) {
+    const c = getAprovColor(pct);
+    return {
+        main:   c,
+        bg:     c.replace('rgb(', 'rgba(').replace(')', ', 0.12)'),
+        border: c.replace('rgb(', 'rgba(').replace(')', ', 0.35)')
+    };
+}
+
+// ─── NEEDLE PLUGIN ────────────────────────────────────────────────
+const needlePlugin = {
+    id: 'needlePlugin',
+    afterDatasetsDraw(chart) {
+        if (!chart._isGauge) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta.data.length) return;
+
+        const arc  = meta.data[0];
+        const cx   = arc.x, cy = arc.y;
+        const rMid = (arc.outerRadius + arc.innerRadius) / 2;
+        const ds   = chart.data.datasets[0];
+        const tot  = ds.data[0] + ds.data[1];
+        const pct  = tot > 0 ? ds.data[0] / tot : 0;
+        const angle = Math.PI + pct * Math.PI;
+        const ctx  = chart.ctx;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.lineTo(rMid, 0);
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI*2);
+        ctx.fillStyle = '#0f172a'; ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI*2);
+        ctx.fillStyle = '#64748b'; ctx.fill();
+
+        // Texto de uso dentro del canvas
+        ctx.font = 'bold 20px Montserrat, sans-serif';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${(pct*100).toFixed(1)}%`, cx, cy + 14);
+        ctx.font = '500 9px Montserrat, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('USO', cx, cy + 38);
+        ctx.restore();
+    }
+};
+Chart.register(needlePlugin);
+
+// ─── RENDER: ANOMALÍA ─────────────────────────────────────────────
+function renderAnomalia(velocidad, periodoLaboral, wrapperId) {
+    const wrapper = document.getElementById(wrapperId);
+    if (!velocidad || velocidad.length === 0) {
+        wrapper.innerHTML = '<div class="state-box">Sin registros de velocidad para este período.</div>';
+        return;
+    }
+
+    const unidad = velocidad[0]?.unidad || '';
+    const { teoData, reaData } = buildStepData(velocidad, periodoLaboral);
+
+    wrapper.innerHTML = `<canvas id="canvas-${wrapperId}"></canvas>`;
+    const ctx = document.getElementById(`canvas-${wrapperId}`).getContext('2d');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Vel. Teórica',
+                    data: teoData,
+                    borderColor: '#22c55e',
+                    borderWidth: 2,
+                    borderDash: [7,5],
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    stepped: 'before',
+                    tension: 0,
+                    parsing: false,
+                    order: 1
+                },
+                {
+                    label: 'Vel. Real',
+                    data: reaData,
+                    borderColor: '#3b82f6',
+                    borderWidth: 2.5,
+                    borderDash: [],
+                    backgroundColor: 'rgba(59,130,246,0.10)',
+                    fill: true,
+                    pointRadius: 0,
+                    stepped: 'before',
+                    tension: 0,
+                    parsing: false,
+                    order: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    titleColor: '#94a3b8',
+                    bodyColor: '#f1f5f9',
+                    padding: 10,
+                    callbacks: {
+                        title: items => new Date(items[0].parsed.x).toLocaleTimeString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }),
+                        label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} ${unidad}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+                    min: new Date(periodoLaboral.inicio).getTime(),
+                    max: new Date(periodoLaboral.fin).getTime(),
+                    grid:   { color: 'rgba(51,65,85,0.4)' },
+                    ticks:  { color: '#64748b', font: { size:11, family:'Montserrat' }, maxRotation: 0 },
+                    border: { color: '#334155' }
+                },
+                y: {
+                    min: 0,
+                    grid:   { color: 'rgba(51,65,85,0.4)' },
+                    ticks:  { color: '#64748b', font: { size:11, family:'Montserrat' }, callback: v => `${v} ${unidad}` },
+                    border: { color: '#334155' },
+                    title:  { display: true, text: `Velocidad (${unidad})`, color: '#475569', font: { size:11, family:'Montserrat' } }
+                }
+            }
+        }
+    });
+}
+
+function buildStepData(velocidad, periodoLaboral) {
+    const teoData = [], reaData = [];
+    const ini = new Date(periodoLaboral.inicio).getTime();
+    const fin = new Date(periodoLaboral.fin).getTime();
+
+    const activoAlInicio = velocidad.find(r => {
+        const rIni = new Date(r.inicio).getTime();
+        const rFin = r.fin ? new Date(r.fin).getTime() : Infinity;
+        return rIni < ini && rFin > ini;
+    });
+
+    if (activoAlInicio) {
+        teoData.push({ x: ini, y: activoAlInicio.velTeo });
+        reaData.push({ x: ini, y: activoAlInicio.velRea });
+    } else {
+        teoData.push({ x: ini, y: 0 });
+        reaData.push({ x: ini, y: 0 });
+    }
+
+    for (let i = 0; i < velocidad.length; i++) {
+        const reg        = velocidad[i];
+        const inicioReg  = new Date(reg.inicio).getTime();
+        const finReg     = reg.fin ? new Date(reg.fin).getTime() : null;
+        const nextReg    = velocidad[i+1];
+        const nextInicio = nextReg ? new Date(nextReg.inicio).getTime() : null;
+
+        if (inicioReg < ini) {
+            if (finReg && finReg > ini) {
+                const ef = Math.min(finReg, fin);
+                const gapMs = nextInicio ? (nextInicio - finReg) : Infinity;
+                if (!nextInicio || gapMs > 2*60*1000) {
+                    teoData.push({ x: ef, y: 0 });
+                    reaData.push({ x: ef, y: 0 });
+                }
+            }
+            continue;
+        }
+
+        if (inicioReg >= fin) break;
+
+        teoData.push({ x: inicioReg, y: reg.velTeo });
+        reaData.push({ x: inicioReg, y: reg.velRea });
+
+        if (finReg) {
+            const ef = Math.min(finReg, fin);
+            const gapMs = nextInicio ? (nextInicio - finReg) : Infinity;
+            if (!nextInicio || gapMs > 2*60*1000) {
+                teoData.push({ x: ef, y: 0 });
+                reaData.push({ x: ef, y: 0 });
+            }
+        }
+    }
+
+    const ultimo = teoData[teoData.length - 1];
+    if (!ultimo || ultimo.x < fin) {
+        teoData.push({ x: fin, y: 0 });
+        reaData.push({ x: fin, y: 0 });
+    }
+
+    return { teoData, reaData };
+}
+
+// ─── RENDER: GAUGE ────────────────────────────────────────────────
+function renderGauge(radial, wrapperId, canvasId) {
+    const wrapper = document.getElementById(wrapperId);
+    if (!radial) {
+        wrapper.innerHTML = '<div class="state-box">Sin datos de aprovechamiento disponibles.</div>';
+        return;
+    }
+
+    const pctUso  = radial.tiempoDisponible > 0 ? Math.min((radial.tiempoDeUso / radial.tiempoDisponible) * 100, 100) : 0;
+    const aprov   = radial.aprovechamiento;
+    const colors  = getAprovColors(aprov);
+    const usoHs   = (radial.tiempoDeUso / 60).toFixed(1);
+    const dispHs  = (radial.tiempoDisponible / 60).toFixed(1);
+
+    wrapper.innerHTML = `
+        <div class="gauge-canvas-wrap">
+            <canvas id="${canvasId}"></canvas>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">${usoHs}</div>
+                <div class="stat-label">Tiempo de Uso (hs)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">${dispHs}</div>
+                <div class="stat-label">Disponible (hs)</div>
+            </div>
+        </div>
+        <div class="aprov-box" style="background:${colors.bg}; border:1px solid ${colors.border}">
+            <div class="aprov-value" style="color:${colors.main}">${aprov.toFixed(2)}%</div>
+            <div class="aprov-label">Aprovechamiento del Recurso</div>
+        </div>
+    `;
+
+    const chart = new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [pctUso, 100 - pctUso],
+                backgroundColor: [colors.main, '#1e3a5f'],
+                borderWidth: 0,
+                hoverOffset: 0
+            }]
+        },
+        options: {
+            rotation: -90,
+            circumference: 180,
+            aspectRatio: 2,
+            cutout: '68%',
+            animation: { duration: 900, easing: 'easeInOutQuart' },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
+        }
+    });
+    chart._isGauge = true;
+}
+
+// ─── RENDER: SEMANAL ──────────────────────────────────────────────
+function renderSemanal(semanas, mes, anio) {
+    const wrapper = document.getElementById('semanal-wrapper');
+    const mesNombre = MESES[mes - 1];
+
+    document.getElementById('semanal-label').textContent = `${mesNombre} ${anio}`;
+
+    const labels = semanas.map(s => `Sem ${s.semana} (${s.dIni}–${s.dFin} ${mesNombre.slice(0,3)})`);
+    const valores = semanas.map(s => s.promedio);
+    const bgColors = semanas.map(s => getAprovColor(s.promedio));
+
+    wrapper.innerHTML = '<canvas id="semanal-chart" style="max-height:320px"></canvas><p class="chart-tip">▲ Clic en una barra para ver el detalle diario</p>';
+
+    const chart = new Chart(document.getElementById('semanal-chart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Aprovechamiento promedio (%)',
+                data: valores,
+                backgroundColor: bgColors,
+                borderRadius: 6,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            animation: { duration: 700, easing: 'easeOutQuart' },
+            onClick: (event, elements) => {
+                if (!elements.length) return;
+                const idx    = elements[0].index;
+                const semana = idx + 1;
+                window.open(`${window.location.origin}/detalle-semana.html?recurso=${recurso}&semana=${semana}&mes=${mes}&anio=${anio}`, '_blank');
+            },
+            onHover: (event, elements) => {
+                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    titleColor: '#94a3b8',
+                    bodyColor: '#f1f5f9',
+                    callbacks: {
+                        label: item => ` Promedio: ${item.parsed.y.toFixed(2)}%`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid:   { color: 'rgba(51,65,85,0.3)' },
+                    ticks:  { color: '#64748b', font: { size:11, family:'Montserrat' } },
+                    border: { color: '#334155' }
+                },
+                y: {
+                    min: 0,
+                    max: 100,
+                    grid:   { color: 'rgba(51,65,85,0.3)' },
+                    ticks:  { color: '#64748b', font: { size:11, family:'Montserrat' }, callback: v => `${v}%` },
+                    border: { color: '#334155' },
+                    title:  { display: true, text: 'Aprovechamiento (%)', color: '#475569', font: { size:11, family:'Montserrat' } }
+                }
+            }
+        }
+    });
+}
+
+// ─── RENDER: DESCARTE ────────────────────────────────────────────
+function renderDescarte(descarte, mes, anio) {
+    const wrapper = document.getElementById('descarte-wrapper');
+    const mesNombre = MESES[mes - 1];
+
+    document.getElementById('descarte-label').textContent = `${mesNombre} ${anio}`;
+
+    if (!descarte || (descarte.totalTeorico === 0 && descarte.totalInformado === 0)) {
+        wrapper.innerHTML = '<div class="state-box">Sin datos de descarte para este mes.</div>';
+        return;
+    }
+
+    const unidad = descarte.unidad || '';
+    // Valor mínimo visual para barras en 0: 0.5% del máximo para que se vea la línea
+    const maxVal = Math.max(descarte.totalTeorico, descarte.totalInformado, 1);
+    const minVisual = maxVal * 0.005;
+    const teoVisual  = descarte.totalTeorico  === 0 ? minVisual : descarte.totalTeorico;
+    const infVisual  = descarte.totalInformado === 0 ? minVisual : descarte.totalInformado;
+
+    const canvasId = 'descarte-chart';
+    wrapper.innerHTML = `<canvas id="${canvasId}" style="max-height:320px"></canvas>`;
+
+    new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Descarte del mes'],
+            datasets: [
+                {
+                    label: `Teórico (${unidad})`,
+                    data: [teoVisual],
+                    backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    barPercentage: 0.6
+                },
+                {
+                    label: `Informado (${unidad})`,
+                    data: [infVisual],
+                    backgroundColor: 'rgba(239, 68, 68, 0.75)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    barPercentage: 0.6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            animation: { duration: 700, easing: 'easeOutQuart' },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#94a3b8', font: { size: 11, family: 'Montserrat' } }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    titleColor: '#94a3b8',
+                    bodyColor: '#f1f5f9',
+                    callbacks: {
+                        label: item => {
+                            const real = item.datasetIndex === 0 ? descarte.totalTeorico : descarte.totalInformado;
+                            return ` ${item.dataset.label}: ${real.toFixed(2)} ${unidad}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid:   { color: 'rgba(51,65,85,0.3)' },
+                    ticks:  { color: '#64748b', font: { size: 11, family: 'Montserrat' } },
+                    border: { color: '#334155' }
+                },
+                y: {
+                    grid:   { color: 'rgba(51,65,85,0.3)' },
+                    ticks:  { color: '#64748b', font: { size: 11, family: 'Montserrat' }, callback: v => `${v} ${unidad}` },
+                    border: { color: '#334155' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// ─── LOAD ALL (v4: carga progresiva - cada sección aparece cuando llega) ───
+async function loadAll() {
+    console.log('[recurso.html v4] loadAll progresivo para recurso', recurso);
+
+    function load(url) {
+        const t0 = performance.now();
+        return fetch(url)
+            .then(r => r.json())
+            .then(json => { console.log(`[FETCH OK] ${url} en ${(performance.now()-t0).toFixed(0)}ms`); return json; })
+            .catch(err => { console.error(`[FETCH ERROR] ${url}`, err); return { success: false, error: err.message }; });
+    }
+
+    // Lanzar las 4 peticiones en paralelo pero renderizar cada una al llegar
+    const histPromise = load(`/api/recurso/${recurso}`).then(json => {
+        try {
+            if (json.success) {
+                renderAnomalia(json.data.velocidad, json.data.periodoLaboral, 'hist-anomalia');
+                renderGauge(json.data.radial, 'hist-gauge', 'gauge-hist');
+            } else {
+                document.getElementById('hist-anomalia').innerHTML = `<div class="state-box">Sin datos</div>`;
+                document.getElementById('hist-gauge').innerHTML = '';
+            }
+        } catch (e) {
+            document.getElementById('hist-anomalia').innerHTML = `<div class="state-box">Error: ${e.message}</div>`;
+            document.getElementById('hist-gauge').innerHTML = '';
+        }
+    });
+
+    const instPromise = load(`/api/recurso/${recurso}/instantaneo`).then(json => {
+        try {
+            if (json.success) {
+                const fin = json.data.periodoLaboral.fin;
+                document.getElementById('inst-period-label').textContent =
+                    `Hoy 06:00 → ${new Date(fin).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' })}`;
+                renderAnomalia(json.data.velocidad, json.data.periodoLaboral, 'inst-anomalia');
+                renderGauge(json.data.radial, 'inst-gauge', 'gauge-inst');
+            } else {
+                document.getElementById('inst-anomalia').innerHTML = `<div class="state-box">Sin datos</div>`;
+                document.getElementById('inst-gauge').innerHTML = '';
+            }
+        } catch (e) {
+            document.getElementById('inst-anomalia').innerHTML = `<div class="state-box">Error: ${e.message}</div>`;
+            document.getElementById('inst-gauge').innerHTML = '';
+        }
+    });
+
+    /* SEMANAL OCULTO
+    const semPromise = load(`/api/recurso/${recurso}/semanal`).then(json => {
+        try {
+            if (json.success) {
+                renderSemanal(json.data.semanas, json.data.mes, json.data.anio);
+            } else {
+                document.getElementById('semanal-wrapper').innerHTML = `<div class="state-box">Sin datos semanales</div>`;
+            }
+        } catch (e) {
+            document.getElementById('semanal-wrapper').innerHTML = `<div class="state-box">Error: ${e.message}</div>`;
+        }
+    });
+    */
+
+    const descPromise = load(`/api/recurso/${recurso}/descarte`).then(json => {
+        try {
+            if (json.success) {
+                renderDescarte(json.data.descarte, json.data.mes, json.data.anio);
+            } else {
+                document.getElementById('descarte-wrapper').innerHTML = `<div class="state-box">Sin datos de descarte</div>`;
+            }
+        } catch (e) {
+            document.getElementById('descarte-wrapper').innerHTML = `<div class="state-box">Error: ${e.message}</div>`;
+        }
+    });
+
+    // Esperar a que terminen todas (sin bloquear entre sí)
+    await Promise.allSettled([histPromise, instPromise, descPromise]);
+    console.log('[loadAll] Todas las secciones cargadas');
+}
+</script>
+</body>
+</html>

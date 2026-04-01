@@ -1268,15 +1268,24 @@
             }
         }
 
+        // Recursos con detalle habilitado (clickeables)
+        const RECURSOS_CON_DETALLE = [
+            102, 103, 109, 111, 120, 124, 129, 131,
+            201, 202, 203, 209,
+            301,
+            401, 402, 404, 405, 406, 418, 419,
+            602, 603, 605
+        ];
+
         // Crear elemento HTML para un recurso
         function createResourceElement(recurso) {
             const div = document.createElement('div');
             div.className = `resource-box ${recurso.estado}`;
-            
+
             // Agregar información del motivo de interrupción si está disponible
             const motivoInfo = recurso.motivoInterrupcion ? ` - ${recurso.motivoInterrupcion}` : '';
             const tiempoFormateado = formatearTiempo(recurso.minutosEstadoActual);
-            
+
             div.innerHTML = `
                 <div class="resource-number">${recurso.numero}</div>
                 <div class="resource-product">${recurso.producto}</div>
@@ -1285,13 +1294,22 @@
                 <div class="resource-op">Legajo: ${recurso.operarios}</div>
                 <div class="resource-operator">OP Plan: ${recurso.opPendientes}</div>
             `;
-            
+
             // Agregar título con información adicional
             div.title = `Estado: ${recurso.estadoTexto}${motivoInfo}
 Kg Acumulados: ${recurso.kgAcumulados}
 Tiempo en estado actual: ${tiempoFormateado}
 Minutos de interrupción: ${recurso.minutosInterrupcion}`;
-            
+
+            // Solo recursos habilitados son clickeables
+            const recursoNum = parseInt(recurso.numero, 10);
+            if (RECURSOS_CON_DETALLE.includes(recursoNum)) {
+                div.style.cursor = 'pointer';
+                div.onclick = () => {
+                    window.open(`${window.location.origin}/recurso.html?recurso=${recurso.numero}`, '_blank');
+                };
+            }
+
             return div;
         }
 
@@ -1887,7 +1905,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             // Configurar intervalos
             setInterval(updateDateTime, 1000); // Actualizar fecha/hora cada segundo
             setInterval(blinkStoppedMachines, 1000); // Efecto de parpadeo
-            setInterval(loadRecursos, 30000); // Actualizar datos cada 30 segundos
+            setInterval(loadRecursos, 120000); // Actualizar datos cada 2 minutos
             setInterval(loadObjetivos, 300000); // Actualizar objetivos cada 5 minutos
         });
 
@@ -1897,47 +1915,3 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
     </script>
 </body>
 </html>
-        <div class="header">
-            <div class="logo-title">
-                <div class="logo">
-                    <img src="IMSA_Logo1-01 (1) (2).png" alt="Logo">
-                </div>
-                <div class="title">
-                    <h1>Monitor de Recursos</h1>
-                    <h2>I.M.S.A.</h2>
-                </div>
-            </div>
-            <div class="date-time">
-                <span id="date">Fecha</span>
-                <span id="time">Tiempo</span>
-            </div>
-        </div>
-        <div class="main-content">
-            <div class="top-content">
-                <div class="left-panel">
-                    <!-- Contenido de la izquierda -->
-                </div>
-                <div class="right-panel">
-                    <!-- Contenido de la derecha -->
-                </div>
-            </div>
-            <div class="bottom-content">
-                <!-- Contenido de la parte inferior -->
-            </div>
-        </div>
-    </div>
-    <script>
-        // JavaScript para actualizar la fecha y el tiempo
-        function updateDateTime() {
-            const dateElement = document.getElementById('date');
-            const timeElement = document.getElementById('time');
-            const now = new Date();
-            dateElement.textContent = now.toLocaleDateString();
-            timeElement.textContent = now.toLocaleTimeString();
-        }
-
-        // Actualizar la fecha y el tiempo cada segundo
-        setInterval(updateDateTime, 1000);
-    </script>
-</body>
-</html> 

@@ -7,16 +7,37 @@ const morgan = require('morgan');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 5490;
+const PORT = process.env.PORT || 5491;
 
+// ===== CACHÉ EN MEMORIA =====
+const cache = new Map();
+const CACHE_TTL = 300000; // 5 minutos
+const CACHE_MAX_ENTRIES = 500; // Límite para evitar memory leak
 
+function getCached(key) {
+    const entry = cache.get(key);
+    if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+    cache.delete(key);
+    return null;
+}
 
+function setCache(key, data) {
+    // Evitar crecimiento indefinido del Map
+    if (cache.size >= CACHE_MAX_ENTRIES) {
+        const oldest = cache.keys().next().value;
+        cache.delete(oldest);
+    }
+    cache.set(key, { data, ts: Date.now() });
+}
+
+// Flag para evitar ejecuciones superpuestas del precache
+let precacheRunning = false;
 
 
 
 // ===== CONFIGURACIÓN DE LA BASE DE DATOS =====
 const tableroConfig = {
-    server: '192.168.100.164',
+    server: '192.168.100.162',
     database: 'CWSGImsa',
     options: {
         encrypt: true,
@@ -31,16 +52,16 @@ const tableroConfig = {
             domain: 'IMSA',
             //userName: 'A_TCasco',
             //password: 'Tiranytar.2023!'
-            userName: 'A_TCasco',
-            password: 'Tiranytar.2023!'
+            userName: 'SVC_dashboard_ia',
+            password: '2!R4+F7=4hx??9^B3k'
 
         }
     },
     pool: {
-        max: 10,
-        min: 0,
+        max: 15,
+        min: 2,
         idleTimeoutMillis: 30000,
-        acquireTimeoutMillis: 60000
+        acquireTimeoutMillis: 15000
     }
 };
 
@@ -49,7 +70,7 @@ app.use(helmet({
     contentSecurityPolicy: false, // Deshabilitamos CSP para permitir inline scripts
 }));
 app.use(compression());
-app.use(morgan('combined'));
+app.use(morgan('short'));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -68,6 +89,11 @@ let connectionPool = null;
 
 async function connectTableroDB() {
     try {
+        if (connectionPool && !connectionPool.connected) {
+            console.log('⚠ Pool desconectado, reconectando...');
+            try { await connectionPool.close(); } catch (_) { /* ignorar */ }
+            connectionPool = null;
+        }
         if (!connectionPool) {
             console.log('🔄 Conectando a la base de datos GCWin...');
             connectionPool = await sql.connect(tableroConfig);
@@ -87,100 +113,66 @@ function determinarEstadoRecurso(recurso) {
     const estado = recurso.Estado ? recurso.Estado.toString().trim() : '';
     const motivoInterrup = recurso.MotivoInterrup ? recurso.MotivoInterrup.toString().trim() : '';
 
-    console.log(`🔍 Recurso ${recurso.Recurso || 'N/A'}: Estado="${estado}", Operarios=${operarios}, Motivo="${motivoInterrup}"`);
-
     // Prioridad 1: Sin operario
     if (!operarios || operarios === 0)  {
-        console.log(`   → Sin operario`);
-        return {
-            estado: 'status-sin-operario',
-            estadoTexto: 'Falta de Personal'
-        };
+        return { estado: 'status-sin-operario', estadoTexto: 'Falta de Personal' };
     }
 
-    
-    
-    // Prioridad 2: Estados de producción (comparación insensible a mayúsculas)
-    if (estado.toLowerCase() === 'enproceso' || estado.toLowerCase() === 'en proceso') {
-        console.log(`   → Produciendo`);
-        return {
-            estado: 'status-produciendo',
-            estadoTexto: 'Produciendo'
-        };
+    const estadoLower = estado.toLowerCase();
+
+    // Prioridad 2: Estados de producción
+    if (estadoLower === 'enproceso' || estadoLower === 'en proceso') {
+        return { estado: 'status-produciendo', estadoTexto: 'Produciendo' };
     }
 
     // Prioridad 2.5: Máquina iniciada pero no en proceso
-    if (estado.toLowerCase() === 'iniciada') {
-        console.log(`   → Máquina Lista (Iniciada)`);
-        return {
-            estado: 'status-iniciada',
-            estadoTexto: 'Máquina Lista'
-        };
+    if (estadoLower === 'iniciada') {
+        return { estado: 'status-iniciada', estadoTexto: 'Máquina Lista' };
     }
 
     // Prioridad 3: Estado en pausa, analizar motivo
-    if (estado.toLowerCase() === 'enpausa' || estado.toLowerCase() === 'en pausa') {
+    if (estadoLower === 'enpausa' || estadoLower === 'en pausa') {
         const motivo = motivoInterrup.toLowerCase();
-        
-        // Mantenimiento (azul)
-        if (motivo.includes('mant. eléctrico') || 
-            motivo.includes('mant. mecánico') || 
-            motivo.includes('limpieza de hornos')) {
-            console.log(`   → Mantenimiento`);
-            return {
-                estado: 'status-mantenimiento',
-                estadoTexto: 'Mantenimiento'
-            };
+
+        if (motivo.includes('mant. eléctrico') || motivo.includes('mant. mecánico') || motivo.includes('limpieza de hornos')) {
+            return { estado: 'status-mantenimiento', estadoTexto: 'Mantenimiento' };
         }
-        
-        // Materiales (naranja)
-        if (motivo.includes('falta de materia prima') || 
-            motivo.includes('falta de trabajo') ||
-            motivo.includes('falta materiales') || 
-            motivo.includes('retiro de material')) {
-            console.log(`   → Falta Materiales`);
-            return {
-                estado: 'status-falta-materiales',
-                estadoTexto: 'Falta Materiales'
-            };
+        if (motivo.includes('falta de materia prima') || motivo.includes('falta de trabajo') || motivo.includes('falta materiales') || motivo.includes('retiro de material')) {
+            return { estado: 'status-falta-materiales', estadoTexto: 'Falta Materiales' };
         }
-        
-        // blanco falta de personal
-        if(motivo.includes('falta de personal')){
-            console.log(`   → Falta de Personal`);
-            return {
-                estado: 'status-falta-personal',
-                estadoTexto: 'Falta de Personal'
-            };
+        if (motivo.includes('falta de personal')) {
+            return { estado: 'status-falta-personal', estadoTexto: 'Falta de Personal' };
+        }
+        if (motivo.includes('cambio de medida') || motivo.includes('cambio de carrete') || motivo.includes('cambio de color') || motivo.includes('falta autocontrol')) {
+            return { estado: 'status-set-up', estadoTexto: 'Set Up' };
         }
 
-
-        // Set Up (amarillo)
-        if (motivo.includes('cambio de medida') || 
-            motivo.includes('cambio de carrete') || 
-            motivo.includes('cambio de color') || 
-            motivo.includes('falta autocontrol')) {
-            console.log(`   → Set Up`);
-            return {
-                estado: 'status-set-up',
-                estadoTexto: 'Set Up'
-            };
-        }
-        
-        // Detenido (rojo) - otros motivos
-        console.log(`   → Detenido (EnPausa sin motivo específico)`);
-        return {
-            estado: 'status-detenido',
-            estadoTexto: 'Detenido'
-        };
+        return { estado: 'status-detenido', estadoTexto: 'Detenido' };
     }
 
     // Estado por defecto
-    console.log(`   → Estado por defecto: Detenido (estado no reconocido: "${estado}")`);
-    return {
-        estado: 'status-detenido',
-        estadoTexto: 'Detenido'
-    };
+    return { estado: 'status-detenido', estadoTexto: 'Detenido' };
+}
+
+// ===== HELPERS DE FECHA (zona horaria) =====
+
+// Formatea un Date de Node.js como string LOCAL para enviar a SQL Server.
+// mssql convierte sql.DateTime a UTC internamente, lo que rompe las comparaciones
+// cuando SQL Server almacena tiempos locales. Usando VARCHAR evitamos esa conversión.
+function toSqlStr(date) {
+    const d = new Date(date);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Recupera el valor crudo que SQL Server almacenó.
+// mssql devuelve datetime como Date en UTC (sin aplicar offset local),
+// por lo que getUTC*() da el valor real que estaba en la base de datos.
+function fromSqlDate(date) {
+    if (!date) return null;
+    const d = new Date(date);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
 // ===== FUNCIÓN PARA GUARDAR LOGS =====
@@ -195,12 +187,9 @@ function saveLog(tipo, datos) {
 // Endpoint para test de conexión
 app.get('/api/test-connection', async (req, res) => {
     try {
-        console.log('🔍 Probando conexión a GCWin...');
         const connection = await connectTableroDB();
         const request = new sql.Request(connection);
         const result = await request.query('SELECT @@VERSION as version, GETDATE() as fecha');
-        
-        console.log('✅ Test de conexión exitoso');
         res.json({
             success: true,
             message: 'Conexión exitosa a GCWin',
@@ -217,16 +206,70 @@ app.get('/api/test-connection', async (req, res) => {
     }
 });
 
+// Endpoint de diagnóstico: mide tiempo de cada query por separado
+app.get('/api/diagnostico/:recurso', async (req, res) => {
+    const recursoNum = parseInt(req.params.recurso, 10);
+    if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso inválido' });
+
+    const connection = await connectTableroDB();
+    const pad = n => String(n).padStart(2, '0');
+    const ahora = new Date();
+    const ayer = new Date(ahora); ayer.setDate(ahora.getDate() - 1);
+    const inicioHist = new Date(ayer); inicioHist.setHours(6, 0, 0, 0);
+    const finHist = new Date(ahora); finHist.setHours(6, 0, 0, 0);
+    const ayerStr = `${ayer.getFullYear()}${pad(ayer.getMonth()+1)}${pad(ayer.getDate())}`;
+    const hoyStr = `${ahora.getFullYear()}${pad(ahora.getMonth()+1)}${pad(ahora.getDate())}`;
+    const mes = ahora.getMonth() + 1;
+    const anio = ahora.getFullYear();
+    const queries = [
+        { nombre: 'Velocidad Histórico', query: `SET NOCOUNT ON; SELECT TOP 100 Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Inicio<'${toSqlStr(finHist)}' AND (Fin>'${toSqlStr(inicioHist)}' OR Fin IS NULL) ORDER BY Inicio` },
+        { nombre: 'Aprovechamiento Histórico', query: `SET NOCOUNT ON; SELECT TOP 10 TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Fecha='${ayerStr}'` },
+        { nombre: 'Velocidad Instantáneo', query: `SET NOCOUNT ON; SELECT TOP 100 Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Inicio<'${toSqlStr(ahora)}' AND (Fin>'${toSqlStr(new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 6))}' OR Fin IS NULL) ORDER BY Inicio` },
+        { nombre: 'Aprovechamiento Instantáneo', query: `SET NOCOUNT ON; SELECT TOP 10 TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Fecha='${hoyStr}'` },
+        { nombre: 'Descarte', query: `SET NOCOUNT ON; SELECT SUM(Teorico) AS TotalTeorico, SUM(Informado) AS TotalInformado, MIN(Unidad) AS Unidad FROM GCWin_V_PBI_RsDesc WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Fecha>='${anio}${pad(mes)}01'` }
+    ];
+
+    const resultados = [];
+    for (const q of queries) {
+        const t0 = Date.now();
+        try {
+            const r = new sql.Request(connection);
+            r.timeout = 60000;
+            const result = await r.query(q.query);
+            resultados.push({ nombre: q.nombre, ms: Date.now() - t0, filas: result.recordset.length, ok: true });
+        } catch (err) {
+            resultados.push({ nombre: q.nombre, ms: Date.now() - t0, error: err.message, ok: false });
+        }
+        console.log(`   [DIAG] ${q.nombre}: ${resultados[resultados.length-1].ms}ms`);
+    }
+
+    // Semanal: deshabilitado por consumo excesivo de recursos
+    // const t0Sem = Date.now();
+    // try {
+    //     const rows = await fetchAprovMensual(connection, recursoNum, anio, mes, lastDay);
+    //     resultados.push({ nombre: 'Semanal (paralelo x día)', ms: Date.now() - t0Sem, filas: rows.length, ok: true });
+    // } catch (err) {
+    //     resultados.push({ nombre: 'Semanal (paralelo x día)', ms: Date.now() - t0Sem, error: err.message, ok: false });
+    // }
+    // console.log(`   [DIAG] Semanal: ${resultados[resultados.length-1].ms}ms`);
+
+    const totalMs = resultados.reduce((s, r) => s + r.ms, 0);
+    console.log(`📊 Diagnóstico recurso ${recursoNum}: total ${totalMs}ms`);
+    res.json({ success: true, recurso: recursoNum, totalMs, resultados });
+});
+
 // Endpoint para obtener recursos
 app.get('/api/recursos', async (req, res) => {
     try {
-        console.log('🔄 Obteniendo recursos del tablero...');
+        const cached = getCached('recursos_all');
+        if (cached) return res.json(cached);
+
         const connection = await connectTableroDB();
         const request = new sql.Request(connection);
         request.timeout = 60000;
 
         const result = await request.query(`
-            SELECT 
+            SELECT
                 Recurso,
                 Estado,
                 MotivoInterrup,
@@ -240,8 +283,6 @@ app.get('/api/recursos', async (req, res) => {
             FROM GCWin_V_EstadoRecursosCables
             ORDER BY Recurso
         `);
-
-        console.log(`✅ Recursos obtenidos: ${result.recordset.length} registros`);
 
         // Procesar los datos
         const recursos = result.recordset.map(row => {
@@ -276,12 +317,14 @@ app.get('/api/recursos', async (req, res) => {
             timestamp: new Date().toISOString()
         });
 
-        res.json({
+        const response = {
             success: true,
             data: recursos,
             total: recursos.length,
             timestamp: new Date().toISOString()
-        });
+        };
+        setCache('recursos_all', response);
+        res.json(response);
 
     } catch (error) {
         console.error('❌ Error obteniendo recursos:', error);
@@ -310,8 +353,6 @@ app.get('/api/objetivos', (req, res) => {
             2: 1200,  // Sección 2
             3: 800    // Sección 3
         };
-
-        console.log('📊 Objetivos enviados:', objetivos);
 
         res.json({
             success: true,
@@ -342,7 +383,6 @@ app.post('/api/objetivos', (req, res) => {
             });
         }
 
-        console.log(`📊 Actualizando objetivo sección ${seccion}: ${objetivo}`);
 
         // Aquí podrías guardar en base de datos o archivo
         // Por ahora solo respondemos exitosamente
@@ -371,6 +411,377 @@ app.post('/api/objetivos', (req, res) => {
     }
 });
 
+// ===== HELPERS para procesar resultados de velocidad y aprovechamiento =====
+function mapVelocidad(recordset) {
+    return recordset.map(row => ({
+        inicio:  fromSqlDate(row.Inicio),
+        fin:     fromSqlDate(row.Fin),
+        velTeo:  parseFloat(row.VelTeo) || 0,
+        velRea:  parseFloat(row.VelRea) || 0,
+        op:      row.Op,
+        unidad:  (row.Unidad || '').trim()
+    }));
+}
+
+function mapRadial(recordset, hasVelocidad) {
+    if (recordset.length > 0) {
+        const r = recordset[0];
+        return {
+            tiempoDeUso:      parseFloat(r.TiempoDeUso) || 0,
+            tiempoDisponible: parseFloat(r.TiempoDisponible) || 0,
+            aprovechamiento:  parseFloat(r.Aprovechamiento) || 0,
+            unidad:           (r.Unidad || 'min').trim()
+        };
+    }
+    return hasVelocidad ? { tiempoDeUso: 0, tiempoDisponible: 0, aprovechamiento: 0, unidad: 'min' } : null;
+}
+
+// ===== SECCIÓN SEMANAL/MENSUAL COMENTADA POR CONSUMO EXCESIVO DE RECURSOS =====
+// function diaDelMes(fechaRaw) {
+//     if (fechaRaw instanceof Date) {
+//         const d = fechaRaw.getUTCDate();
+//         return Number.isFinite(d) ? d : null;
+//     }
+//     const s = String(fechaRaw ?? '').trim();
+//     if (/^\d{8}$/.test(s)) return parseInt(s.slice(6, 8), 10) || null;
+//     const d = new Date(fechaRaw);
+//     const day = d.getUTCDate();
+//     return Number.isFinite(day) ? day : null;
+// }
+//
+// async function fetchAprovMensual(connection, recursoNum, anio, mes, lastDay) {
+//     const pad = n => String(n).padStart(2, '0');
+//     const hoy = new Date();
+//     const ultimoDia = (anio === hoy.getFullYear() && mes === hoy.getMonth() + 1)
+//         ? Math.min(hoy.getDate(), lastDay)
+//         : lastDay;
+//     if (ultimoDia === 0) return [];
+//     const fechaInicio = `${anio}${pad(mes)}01`;
+//     const fechaFin = `${anio}${pad(mes)}${pad(ultimoDia)}`;
+//     const req = new sql.Request(connection);
+//     req.timeout = 60000;
+//     req.input('recurso', sql.Int, recursoNum);
+//     req.input('fechaInicio', sql.VarChar, fechaInicio);
+//     req.input('fechaFin', sql.VarChar, fechaFin);
+//     const result = await req.query(
+//         `SET NOCOUNT ON; SELECT Fecha, TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha>=@fechaInicio AND Fecha<=@fechaFin`
+//     );
+//     return result.recordset;
+// }
+// ===== FIN SECCIÓN SEMANAL COMENTADA =====
+
+// ===== ENDPOINT UNIFICADO: todas las queries en paralelo, con caché =====
+app.get('/api/recurso/:recurso/all', async (req, res) => {
+    try {
+        const recursoNum = parseInt(req.params.recurso, 10);
+        if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso debe ser un número' });
+
+        // Revisar caché
+        const cacheKey = `recurso_all_${recursoNum}`;
+        const cached = getCached(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        const connection = await connectTableroDB();
+        const pad = n => String(n).padStart(2, '0');
+        const ahora = new Date();
+
+        // Fechas para histórico (ayer 06:00 → hoy 06:00)
+        const ayer = new Date(ahora);
+        ayer.setDate(ahora.getDate() - 1);
+        const inicioHist = new Date(ayer); inicioHist.setHours(6, 0, 0, 0);
+        const finHist = new Date(ahora); finHist.setHours(6, 0, 0, 0);
+        const ayerStr = `${ayer.getFullYear()}${pad(ayer.getMonth()+1)}${pad(ayer.getDate())}`;
+
+        // Fechas para instantáneo (hoy 06:00 → ahora)
+        const inicioInst = new Date(ahora); inicioInst.setHours(6, 0, 0, 0);
+        const hoyStr = `${ahora.getFullYear()}${pad(ahora.getMonth()+1)}${pad(ahora.getDate())}`;
+
+        // Fechas para descarte (mes actual)
+        const mes = ahora.getMonth() + 1;
+        const anio = ahora.getFullYear();
+        const inicioMesStr = `${anio}${pad(mes)}01`;
+
+        // ── Lanzar las 6 queries en paralelo ──
+        const qTimeout = 60000;
+
+        const rVelHist = new sql.Request(connection);
+        rVelHist.timeout = qTimeout;
+        rVelHist.input('recurso', sql.Int, recursoNum);
+        rVelHist.input('inicio', sql.VarChar, toSqlStr(inicioHist));
+        rVelHist.input('fin', sql.VarChar, toSqlStr(finHist));
+
+        const rAprovHist = new sql.Request(connection);
+        rAprovHist.timeout = qTimeout;
+        rAprovHist.input('recurso', sql.Int, recursoNum);
+        rAprovHist.input('fecha', sql.VarChar, ayerStr);
+
+        const rVelInst = new sql.Request(connection);
+        rVelInst.timeout = qTimeout;
+        rVelInst.input('recurso', sql.Int, recursoNum);
+        rVelInst.input('inicio', sql.VarChar, toSqlStr(inicioInst));
+        rVelInst.input('fin', sql.VarChar, toSqlStr(ahora));
+
+        const rAprovInst = new sql.Request(connection);
+        rAprovInst.timeout = qTimeout;
+        rAprovInst.input('recurso', sql.Int, recursoNum);
+        rAprovInst.input('fecha', sql.VarChar, hoyStr);
+
+        const rDescarte = new sql.Request(connection);
+        rDescarte.timeout = qTimeout;
+        rDescarte.input('recurso', sql.Int, recursoNum);
+        rDescarte.input('inicio', sql.VarChar, inicioMesStr);
+
+        const [velHistR, aprovHistR, velInstR, aprovInstR, descarteR] = await Promise.all([
+            rVelHist.query(`SET NOCOUNT ON; SELECT Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=@recurso AND Inicio<@fin AND (Fin>@inicio OR Fin IS NULL) ORDER BY Inicio`),
+            rAprovHist.query(`SET NOCOUNT ON; SELECT TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha=@fecha`),
+            rVelInst.query(`SET NOCOUNT ON; SELECT Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=@recurso AND Inicio<@fin AND (Fin>@inicio OR Fin IS NULL) ORDER BY Inicio`),
+            rAprovInst.query(`SET NOCOUNT ON; SELECT TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha=@fecha`),
+            rDescarte.query(`SET NOCOUNT ON; SELECT SUM(Teorico) AS TotalTeorico, SUM(Informado) AS TotalInformado, MIN(Unidad) AS Unidad FROM GCWin_V_PBI_RsDesc WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha>=@inicio`)
+        ]);
+
+        // Procesar histórico
+        const histVel = mapVelocidad(velHistR.recordset);
+        const histRadial = mapRadial(aprovHistR.recordset, histVel.length > 0);
+
+        // Procesar instantáneo
+        const instVel = mapVelocidad(velInstR.recordset);
+        const instRadial = mapRadial(aprovInstR.recordset, instVel.length > 0);
+
+        // Procesar descarte
+        const dRow = descarteR.recordset[0];
+        const descarte = {
+            unidad: (dRow && dRow.Unidad || '').trim(),
+            totalTeorico: parseFloat(dRow && dRow.TotalTeorico) || 0,
+            totalInformado: parseFloat(dRow && dRow.TotalInformado) || 0
+        };
+
+        const response = {
+            success: true,
+            data: {
+                recurso: recursoNum,
+                historico: {
+                    velocidad: histVel,
+                    radial: histRadial,
+                    periodoLaboral: {
+                        inicio: toSqlStr(inicioHist).replace(' ', 'T'),
+                        fin: toSqlStr(finHist).replace(' ', 'T')
+                    }
+                },
+                instantaneo: {
+                    velocidad: instVel,
+                    radial: instRadial,
+                    periodoLaboral: {
+                        inicio: toSqlStr(inicioInst).replace(' ', 'T'),
+                        fin: toSqlStr(ahora).replace(' ', 'T')
+                    }
+                },
+                // semanal: deshabilitado por consumo excesivo de recursos
+                descarte: { recurso: recursoNum, mes, anio, descarte }
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        setCache(cacheKey, response);
+        res.json(response);
+
+    } catch (error) {
+        console.error(`❌ Error recurso ${req.params.recurso}/all:`, error);
+        res.status(500).json({ success: false, error: 'Error obteniendo datos del recurso', details: error.message });
+    }
+});
+
+// ===== ENDPOINTS INDIVIDUALES (retrocompatibilidad, optimizados) =====
+
+app.get('/api/recurso/:recurso', async (req, res) => {
+    try {
+        const recursoNum = parseInt(req.params.recurso, 10);
+        if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso debe ser un número' });
+
+        const cacheKey = `recurso_hist_${recursoNum}`;
+        const cached = getCached(cacheKey);
+        if (cached) return res.json(cached);
+
+        const connection = await connectTableroDB();
+        const ahora = new Date();
+        const ayer = new Date(ahora); ayer.setDate(ahora.getDate() - 1);
+        const inicioLaboral = new Date(ayer); inicioLaboral.setHours(6, 0, 0, 0);
+        const finLaboral = new Date(ahora); finLaboral.setHours(6, 0, 0, 0);
+        const pad = n => String(n).padStart(2, '0');
+        const ayerStr = `${ayer.getFullYear()}${pad(ayer.getMonth()+1)}${pad(ayer.getDate())}`;
+
+        const rVel = new sql.Request(connection); rVel.timeout = 60000;
+        rVel.input('recurso', sql.Int, recursoNum);
+        rVel.input('inicio', sql.VarChar, toSqlStr(inicioLaboral));
+        rVel.input('fin', sql.VarChar, toSqlStr(finLaboral));
+
+        const rAprov = new sql.Request(connection); rAprov.timeout = 60000;
+        rAprov.input('recurso', sql.Int, recursoNum);
+        rAprov.input('fecha', sql.VarChar, ayerStr);
+
+        // Ambas queries en paralelo
+        const [velR, aprovR] = await Promise.all([
+            rVel.query(`SET NOCOUNT ON; SELECT Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=@recurso AND Inicio<@fin AND (Fin>@inicio OR Fin IS NULL) ORDER BY Inicio`),
+            rAprov.query(`SET NOCOUNT ON; SELECT TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha=@fecha`)
+        ]);
+
+        const velocidadData = mapVelocidad(velR.recordset);
+        const response = {
+            success: true,
+            data: {
+                recurso: recursoNum,
+                velocidad: velocidadData,
+                radial: mapRadial(aprovR.recordset, velocidadData.length > 0),
+                periodoLaboral: { inicio: toSqlStr(inicioLaboral).replace(' ', 'T'), fin: toSqlStr(finLaboral).replace(' ', 'T') }
+            },
+            timestamp: new Date().toISOString()
+        };
+        setCache(cacheKey, response);
+        res.json(response);
+    } catch (error) {
+        console.error(`❌ Error recurso ${req.params.recurso}:`, error);
+        res.status(500).json({ success: false, error: 'Error obteniendo datos del recurso', details: error.message });
+    }
+});
+
+app.get('/api/recurso/:recurso/instantaneo', async (req, res) => {
+    try {
+        const recursoNum = parseInt(req.params.recurso, 10);
+        if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso debe ser un número' });
+
+        const cacheKey = `recurso_inst_${recursoNum}`;
+        const cached = getCached(cacheKey);
+        if (cached) return res.json(cached);
+
+        const connection = await connectTableroDB();
+        const ahora = new Date();
+        const inicioLaboral = new Date(ahora); inicioLaboral.setHours(6, 0, 0, 0);
+        const pad = n => String(n).padStart(2, '0');
+        const hoyStr = `${ahora.getFullYear()}${pad(ahora.getMonth()+1)}${pad(ahora.getDate())}`;
+
+        const rVel = new sql.Request(connection); rVel.timeout = 60000;
+        rVel.input('recurso', sql.Int, recursoNum);
+        rVel.input('inicio', sql.VarChar, toSqlStr(inicioLaboral));
+        rVel.input('fin', sql.VarChar, toSqlStr(ahora));
+
+        const rAprov = new sql.Request(connection); rAprov.timeout = 60000;
+        rAprov.input('recurso', sql.Int, recursoNum);
+        rAprov.input('fecha', sql.VarChar, hoyStr);
+
+        const [velR, aprovR] = await Promise.all([
+            rVel.query(`SET NOCOUNT ON; SELECT Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=@recurso AND Inicio<@fin AND (Fin>@inicio OR Fin IS NULL) ORDER BY Inicio`),
+            rAprov.query(`SET NOCOUNT ON; SELECT TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha=@fecha`)
+        ]);
+
+        const velocidadData = mapVelocidad(velR.recordset);
+        const response = {
+            success: true,
+            data: {
+                recurso: recursoNum,
+                velocidad: velocidadData,
+                radial: mapRadial(aprovR.recordset, velocidadData.length > 0),
+                periodoLaboral: { inicio: toSqlStr(inicioLaboral).replace(' ', 'T'), fin: toSqlStr(ahora).replace(' ', 'T') }
+            },
+            timestamp: new Date().toISOString()
+        };
+        setCache(cacheKey, response);
+        res.json(response);
+    } catch (error) {
+        console.error(`❌ Error instantáneo recurso ${req.params.recurso}:`, error);
+        res.status(500).json({ success: false, error: 'Error obteniendo datos', details: error.message });
+    }
+});
+
+// ===== ENDPOINT SEMANAL COMENTADO POR CONSUMO EXCESIVO DE RECURSOS =====
+// app.get('/api/recurso/:recurso/semanal', async (req, res) => {
+//     try {
+//         const recursoNum = parseInt(req.params.recurso, 10);
+//         if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso inválido' });
+//         const cacheKey = `recurso_sem_${recursoNum}`;
+//         const cached = getCached(cacheKey);
+//         if (cached) return res.json(cached);
+//         const connection = await connectTableroDB();
+//         const ahora = new Date();
+//         const mes = ahora.getMonth() + 1;
+//         const anio = ahora.getFullYear();
+//         const pad = n => String(n).padStart(2, '0');
+//         const lastDay = new Date(anio, ahora.getMonth() + 1, 0).getDate();
+//         const t0Sem = Date.now();
+//         const semanalRows = await fetchAprovMensual(connection, recursoNum, anio, mes, lastDay);
+//         console.log(`[SEMANAL] Recurso ${recursoNum}: ${semanalRows.length} filas en ${Date.now() - t0Sem}ms`);
+//         const rangos = [
+//             { semana: 1, dIni: 1, dFin: 7 }, { semana: 2, dIni: 8, dFin: 14 },
+//             { semana: 3, dIni: 15, dFin: 21 }, { semana: 4, dIni: 22, dFin: lastDay }
+//         ];
+//         const semanas = rangos.map(r => {
+//             const dias = semanalRows
+//                 .filter(row => { const d = diaDelMes(row.Fecha); return d != null && d >= r.dIni && d <= r.dFin; })
+//                 .map(row => ({
+//                     fecha: fromSqlDate(row.Fecha).split('T')[0],
+//                     tiempoDeUso: parseFloat(row.TiempoDeUso) || 0,
+//                     tiempoDisponible: parseFloat(row.TiempoDisponible) || 0,
+//                     aprovechamiento: parseFloat(row.Aprovechamiento) || 0,
+//                     unidad: (row.Unidad || 'min').trim()
+//                 }));
+//             const promedio = dias.length > 0
+//                 ? parseFloat((dias.reduce((s, d) => s + d.aprovechamiento, 0) / dias.length).toFixed(2)) : 0;
+//             return { semana: r.semana, dIni: r.dIni, dFin: r.dFin, promedio, cantDias: dias.length, dias };
+//         });
+//         const response = { success: true, data: { recurso: recursoNum, mes, anio, semanas } };
+//         setCache(cacheKey, response);
+//         res.json(response);
+//     } catch (error) {
+//         console.error(`❌ Error semanal recurso ${req.params.recurso}:`, error);
+//         res.status(500).json({ success: false, error: 'Error obteniendo datos semanales', details: error.message });
+//     }
+// });
+app.get('/api/recurso/:recurso/semanal', (req, res) => {
+    res.json({ success: false, error: 'Endpoint semanal deshabilitado temporalmente por rendimiento' });
+});
+// ===== FIN ENDPOINT SEMANAL COMENTADO =====
+
+app.get('/api/recurso/:recurso/descarte', async (req, res) => {
+    try {
+        const recursoNum = parseInt(req.params.recurso, 10);
+        if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso inválido' });
+
+        const cacheKey = `recurso_desc_${recursoNum}`;
+        const cached = getCached(cacheKey);
+        if (cached) return res.json(cached);
+
+        const connection = await connectTableroDB();
+        const ahora = new Date();
+        const mes = ahora.getMonth() + 1;
+        const anio = ahora.getFullYear();
+        const pad = n => String(n).padStart(2, '0');
+
+        const rDesc = new sql.Request(connection); rDesc.timeout = 60000;
+        rDesc.input('recurso', sql.Int, recursoNum);
+        rDesc.input('inicio', sql.VarChar, `${anio}${pad(mes)}01`);
+
+        const result = await rDesc.query(`SET NOCOUNT ON; SELECT SUM(Teorico) AS TotalTeorico, SUM(Informado) AS TotalInformado, MIN(Unidad) AS Unidad FROM GCWin_V_PBI_RsDesc WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha>=@inicio`);
+
+        const row = result.recordset[0];
+        const response = {
+            success: true,
+            data: {
+                recurso: recursoNum, mes, anio,
+                descarte: {
+                    unidad: (row && row.Unidad || '').trim(),
+                    totalTeorico: parseFloat(row && row.TotalTeorico) || 0,
+                    totalInformado: parseFloat(row && row.TotalInformado) || 0
+                }
+            }
+        };
+        setCache(cacheKey, response);
+        res.json(response);
+    } catch (error) {
+        console.error(`❌ Error descarte recurso ${req.params.recurso}:`, error);
+        res.status(500).json({ success: false, error: 'Error obteniendo datos de descarte', details: error.message });
+    }
+});
+
 // ===== RUTA PRINCIPAL =====
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -396,6 +807,46 @@ app.use('*', (req, res) => {
     });
 });
 
+// ===== PRE-CACHÉ LIVIANO =====
+// Solo precachea el listado general de recursos (1 sola query).
+// El detalle de cada recurso se cachea bajo demanda cuando un usuario lo solicita.
+async function precacheRecursos() {
+    if (precacheRunning) return;
+    precacheRunning = true;
+    try {
+        const connection = await connectTableroDB();
+        const request = new sql.Request(connection);
+        request.timeout = 30000;
+
+        const result = await request.query(`
+            SELECT Recurso, Estado, MotivoInterrup, Operarios, OpEnCurso,
+                   OpPendientes, Producto, KgAcumDelDia, MinsInterrupDelDia, MinsEstadoActual
+            FROM GCWin_V_EstadoRecursosCables ORDER BY Recurso
+        `);
+
+        const recursos = result.recordset.map(row => {
+            const recursoData = { Operarios: row.Operarios, Estado: row.Estado, MotivoInterrup: row.MotivoInterrup };
+            const estadoInfo = determinarEstadoRecurso(recursoData);
+            return {
+                numero: row.Recurso, estado: estadoInfo.estado, estadoTexto: estadoInfo.estadoTexto,
+                motivoInterrupcion: row.MotivoInterrup || '', operarios: row.Operarios || 0,
+                opEnCurso: row.OpEnCurso || 'Sin OP', opPendientes: row.OpPendientes || 0,
+                producto: row.Producto || 'Sin producto', kgAcumulados: parseFloat(row.KgAcumDelDia) || 0,
+                minutosInterrupcion: parseInt(row.MinsInterrupDelDia) || 0, minutosEstadoActual: parseInt(row.MinsEstadoActual) || 0
+            };
+        });
+
+        setCache('recursos_all', {
+            success: true, data: recursos, total: recursos.length, timestamp: new Date().toISOString()
+        });
+        console.log(`[PRECACHE] Listado de ${recursos.length} recursos actualizado`);
+    } catch (err) {
+        console.error('[PRECACHE] Error:', err.message);
+    } finally {
+        precacheRunning = false;
+    }
+}
+
 // ===== INICIAR SERVIDOR =====
 app.listen(PORT, () => {
     console.log(`
@@ -404,12 +855,19 @@ app.listen(PORT, () => {
 🏢 URL Intranet: http://[IP-DEL-SERVIDOR]:${PORT}
 📊 Endpoints disponibles:
    • GET /api/test-connection
-   • GET /api/recursos  
+   • GET /api/diagnostico/:recurso  (diagnóstico de tiempos)
+   • GET /api/recursos
    • GET /api/objetivos
    • POST /api/objetivos
+   • GET /api/recurso/:id/all  (unificado)
 🔄 Servidor listo para recibir conexiones...
 ==========================================
     `);
+
+    // Precaché liviano: solo el listado general de recursos
+    setTimeout(() => precacheRecursos(), 10000);
+    // Refrescar el listado cada 2 minutos (alineado con el polling del frontend)
+    setInterval(() => precacheRecursos(), 120000);
 });
 
 // ===== MANEJO DE CIERRE GRACEFUL =====

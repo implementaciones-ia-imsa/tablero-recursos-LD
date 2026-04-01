@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>TEST - Semanal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0f172a; color: #f1f5f9; font-family: sans-serif; padding: 20px; }
+        #log { background: #1e293b; padding: 10px; border-radius: 8px; white-space: pre-wrap; font-size: 12px; max-height: 300px; overflow-y: auto; margin-bottom: 20px; }
+        #chart-container { background: #1e293b; padding: 20px; border-radius: 8px; max-width: 700px; }
+        .ok { color: #22c55e; }
+        .err { color: #ef4444; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+<h2>Test de Grafico Semanal</h2>
+<div id="log"></div>
+<div id="chart-container">
+    <canvas id="test-chart" style="max-height:320px"></canvas>
+</div>
+
+<script>
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const span = document.createElement('span');
+    span.className = cls || '';
+    span.textContent = new Date().toLocaleTimeString() + ' ' + msg + '\n';
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+const recurso = urlParams.get('recurso') || '102';
+
+log('Recurso: ' + recurso, 'info');
+log('Chart.js version: ' + (typeof Chart !== 'undefined' ? Chart.version : 'NO CARGADO'), 'info');
+log('Origin: ' + window.location.origin, 'info');
+
+async function test() {
+    // Paso 1: Fetch
+    log('Paso 1: Fetching /api/recurso/' + recurso + '/semanal ...');
+    try {
+        const url = '/api/recurso/' + recurso + '/semanal';
+        const res = await fetch(url);
+        log('  Status: ' + res.status, res.ok ? 'ok' : 'err');
+
+        const json = await res.json();
+        log('  success: ' + json.success, json.success ? 'ok' : 'err');
+
+        if (!json.success) {
+            log('  ERROR: ' + json.error + ' | ' + (json.details || ''), 'err');
+            return;
+        }
+
+        const semanas = json.data.semanas;
+        const mes = json.data.mes;
+        const anio = json.data.anio;
+        log('  Mes: ' + mes + '/' + anio + ', Semanas: ' + semanas.length, 'ok');
+
+        semanas.forEach(s => {
+            log('  Sem ' + s.semana + ': promedio=' + s.promedio + '%, dias=' + s.cantDias + ' (dia ' + s.dIni + '-' + s.dFin + ')');
+        });
+
+        // Paso 2: Render chart
+        log('Paso 2: Creando grafico bar...');
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const mesNombre = MESES[mes - 1];
+        const labels = semanas.map(s => 'Sem ' + s.semana + ' (' + s.dIni + '-' + s.dFin + ' ' + mesNombre.slice(0,3) + ')');
+        const valores = semanas.map(s => s.promedio);
+
+        log('  labels: ' + JSON.stringify(labels));
+        log('  valores: ' + JSON.stringify(valores));
+
+        const ctx = document.getElementById('test-chart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Aprovechamiento promedio (%)',
+                    data: valores,
+                    backgroundColor: ['#ef4444', '#fde047', '#22c55e', '#3b82f6'],
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: { duration: 700 },
+                scales: {
+                    y: { min: 0, max: 100, ticks: { color: '#94a3b8', callback: v => v + '%' } },
+                    x: { ticks: { color: '#94a3b8' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        log('Grafico creado exitosamente!', 'ok');
+
+    } catch (e) {
+        log('ERROR: ' + e.message, 'err');
+        log('Stack: ' + e.stack, 'err');
+    }
+}
+
+test();
+</script>
+</body>
+</html>

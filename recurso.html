@@ -311,8 +311,7 @@
         </div>
     </div>
 
-    <!-- ── SECCIÓN 3: SEMANAL (OCULTA) ───────────────────────── -->
-    <!--
+    <!-- ── SECCIÓN 3: SEMANAL ───────────────────────── -->
     <div class="section-divider">
         <span class="sl-title">Aprovechamiento Semanal</span>
         <span class="sl-period" id="semanal-label">Mes actual</span>
@@ -324,7 +323,6 @@
             <div id="semanal-wrapper"><div class="state-box"><div class="spinner"></div><span>Cargando...</span></div></div>
         </div>
     </div>
-    -->
 
     <!-- ── SECCIÓN 4: DESCARTE MENSUAL ──────────────── -->
     <div class="section-divider">
@@ -847,7 +845,6 @@ async function loadAll() {
         }
     });
 
-    /* SEMANAL OCULTO
     const semPromise = load(`/api/recurso/${recurso}/semanal`).then(json => {
         try {
             if (json.success) {
@@ -859,7 +856,6 @@ async function loadAll() {
             document.getElementById('semanal-wrapper').innerHTML = `<div class="state-box">Error: ${e.message}</div>`;
         }
     });
-    */
 
     const descPromise = load(`/api/recurso/${recurso}/descarte`).then(json => {
         try {

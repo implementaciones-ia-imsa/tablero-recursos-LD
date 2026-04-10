@@ -21,6 +21,9 @@ function getCached(key) {
     return null;
 }
 
+// Recurso en las vistas GCWin es CHAR(10) con padding de espacios a la izquierda
+const padRecurso = n => String(n).padStart(10, ' ');
+
 function setCache(key, data) {
     // Evitar crecimiento indefinido del Map
     if (cache.size >= CACHE_MAX_ENTRIES) {
@@ -221,12 +224,13 @@ app.get('/api/diagnostico/:recurso', async (req, res) => {
     const hoyStr = `${ahora.getFullYear()}${pad(ahora.getMonth()+1)}${pad(ahora.getDate())}`;
     const mes = ahora.getMonth() + 1;
     const anio = ahora.getFullYear();
+    const recursoStr = padRecurso(recursoNum);
     const queries = [
-        { nombre: 'Velocidad Histórico', query: `SET NOCOUNT ON; SELECT TOP 100 Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Inicio<'${toSqlStr(finHist)}' AND (Fin>'${toSqlStr(inicioHist)}' OR Fin IS NULL) ORDER BY Inicio` },
-        { nombre: 'Aprovechamiento Histórico', query: `SET NOCOUNT ON; SELECT TOP 10 TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Fecha='${ayerStr}'` },
-        { nombre: 'Velocidad Instantáneo', query: `SET NOCOUNT ON; SELECT TOP 100 Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Inicio<'${toSqlStr(ahora)}' AND (Fin>'${toSqlStr(new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 6))}' OR Fin IS NULL) ORDER BY Inicio` },
-        { nombre: 'Aprovechamiento Instantáneo', query: `SET NOCOUNT ON; SELECT TOP 10 TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Fecha='${hoyStr}'` },
-        { nombre: 'Descarte', query: `SET NOCOUNT ON; SELECT SUM(Teorico) AS TotalTeorico, SUM(Informado) AS TotalInformado, MIN(Unidad) AS Unidad FROM GCWin_V_PBI_RsDesc WITH (NOLOCK) WHERE Recurso=${recursoNum} AND Fecha>='${anio}${pad(mes)}01'` }
+        { nombre: 'Velocidad Histórico', query: `SET NOCOUNT ON; SELECT TOP 100 Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso='${recursoStr}' AND Inicio<'${toSqlStr(finHist)}' AND (Fin>'${toSqlStr(inicioHist)}' OR Fin IS NULL) ORDER BY Inicio` },
+        { nombre: 'Aprovechamiento Histórico', query: `SET NOCOUNT ON; SELECT TOP 10 TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso='${recursoStr}' AND Fecha='${ayerStr}'` },
+        { nombre: 'Velocidad Instantáneo', query: `SET NOCOUNT ON; SELECT TOP 100 Op, Inicio, Fin, VelTeo, VelRea, Unidad FROM GCWin_V_PBI_RsVeloc WITH (NOLOCK) WHERE Recurso='${recursoStr}' AND Inicio<'${toSqlStr(ahora)}' AND (Fin>'${toSqlStr(new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 6))}' OR Fin IS NULL) ORDER BY Inicio` },
+        { nombre: 'Aprovechamiento Instantáneo', query: `SET NOCOUNT ON; SELECT TOP 10 TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso='${recursoStr}' AND Fecha='${hoyStr}'` },
+        { nombre: 'Descarte', query: `SET NOCOUNT ON; SELECT SUM(Teorico) AS TotalTeorico, SUM(Informado) AS TotalInformado, MIN(Unidad) AS Unidad FROM GCWin_V_PBI_RsDesc WITH (NOLOCK) WHERE Recurso='${recursoStr}' AND Fecha>='${anio}${pad(mes)}01'` }
     ];
 
     const resultados = [];
@@ -436,39 +440,39 @@ function mapRadial(recordset, hasVelocidad) {
     return hasVelocidad ? { tiempoDeUso: 0, tiempoDisponible: 0, aprovechamiento: 0, unidad: 'min' } : null;
 }
 
-// ===== SECCIÓN SEMANAL/MENSUAL COMENTADA POR CONSUMO EXCESIVO DE RECURSOS =====
-// function diaDelMes(fechaRaw) {
-//     if (fechaRaw instanceof Date) {
-//         const d = fechaRaw.getUTCDate();
-//         return Number.isFinite(d) ? d : null;
-//     }
-//     const s = String(fechaRaw ?? '').trim();
-//     if (/^\d{8}$/.test(s)) return parseInt(s.slice(6, 8), 10) || null;
-//     const d = new Date(fechaRaw);
-//     const day = d.getUTCDate();
-//     return Number.isFinite(day) ? day : null;
-// }
-//
-// async function fetchAprovMensual(connection, recursoNum, anio, mes, lastDay) {
-//     const pad = n => String(n).padStart(2, '0');
-//     const hoy = new Date();
-//     const ultimoDia = (anio === hoy.getFullYear() && mes === hoy.getMonth() + 1)
-//         ? Math.min(hoy.getDate(), lastDay)
-//         : lastDay;
-//     if (ultimoDia === 0) return [];
-//     const fechaInicio = `${anio}${pad(mes)}01`;
-//     const fechaFin = `${anio}${pad(mes)}${pad(ultimoDia)}`;
-//     const req = new sql.Request(connection);
-//     req.timeout = 60000;
-//     req.input('recurso', sql.Int, recursoNum);
-//     req.input('fechaInicio', sql.VarChar, fechaInicio);
-//     req.input('fechaFin', sql.VarChar, fechaFin);
-//     const result = await req.query(
-//         `SET NOCOUNT ON; SELECT Fecha, TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha>=@fechaInicio AND Fecha<=@fechaFin`
-//     );
-//     return result.recordset;
-// }
-// ===== FIN SECCIÓN SEMANAL COMENTADA =====
+// ===== SECCIÓN SEMANAL/MENSUAL =====
+function diaDelMes(fechaRaw) {
+    if (fechaRaw instanceof Date) {
+        const d = fechaRaw.getUTCDate();
+        return Number.isFinite(d) ? d : null;
+    }
+    const s = String(fechaRaw ?? '').trim();
+    if (/^\d{8}$/.test(s)) return parseInt(s.slice(6, 8), 10) || null;
+    const d = new Date(fechaRaw);
+    const day = d.getUTCDate();
+    return Number.isFinite(day) ? day : null;
+}
+
+async function fetchAprovMensual(connection, recursoNum, anio, mes, lastDay) {
+    const pad = n => String(n).padStart(2, '0');
+    const hoy = new Date();
+    const ultimoDia = (anio === hoy.getFullYear() && mes === hoy.getMonth() + 1)
+        ? Math.min(hoy.getDate(), lastDay)
+        : lastDay;
+    if (ultimoDia === 0) return [];
+    const fechaInicio = `${anio}${pad(mes)}01`;
+    const fechaFin = `${anio}${pad(mes)}${pad(ultimoDia)}`;
+    const req = new sql.Request(connection);
+    req.timeout = 60000;
+    req.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
+    req.input('fechaInicio', sql.VarChar, fechaInicio);
+    req.input('fechaFin', sql.VarChar, fechaFin);
+    const result = await req.query(
+        `SET NOCOUNT ON; SELECT Fecha, TiempoDeUso, TiempoDisponible, Unidad, Aprovechamiento FROM GCWin_V_PBI_RsAprov WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha>=@fechaInicio AND Fecha<=@fechaFin`
+    );
+    return result.recordset;
+}
+// ===== FIN SECCIÓN SEMANAL =====
 
 // ===== ENDPOINT UNIFICADO: todas las queries en paralelo, con caché =====
 app.get('/api/recurso/:recurso/all', async (req, res) => {
@@ -508,29 +512,29 @@ app.get('/api/recurso/:recurso/all', async (req, res) => {
 
         const rVelHist = new sql.Request(connection);
         rVelHist.timeout = qTimeout;
-        rVelHist.input('recurso', sql.Int, recursoNum);
+        rVelHist.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rVelHist.input('inicio', sql.VarChar, toSqlStr(inicioHist));
         rVelHist.input('fin', sql.VarChar, toSqlStr(finHist));
 
         const rAprovHist = new sql.Request(connection);
         rAprovHist.timeout = qTimeout;
-        rAprovHist.input('recurso', sql.Int, recursoNum);
+        rAprovHist.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rAprovHist.input('fecha', sql.VarChar, ayerStr);
 
         const rVelInst = new sql.Request(connection);
         rVelInst.timeout = qTimeout;
-        rVelInst.input('recurso', sql.Int, recursoNum);
+        rVelInst.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rVelInst.input('inicio', sql.VarChar, toSqlStr(inicioInst));
         rVelInst.input('fin', sql.VarChar, toSqlStr(ahora));
 
         const rAprovInst = new sql.Request(connection);
         rAprovInst.timeout = qTimeout;
-        rAprovInst.input('recurso', sql.Int, recursoNum);
+        rAprovInst.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rAprovInst.input('fecha', sql.VarChar, hoyStr);
 
         const rDescarte = new sql.Request(connection);
         rDescarte.timeout = qTimeout;
-        rDescarte.input('recurso', sql.Int, recursoNum);
+        rDescarte.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rDescarte.input('inicio', sql.VarChar, inicioMesStr);
 
         const [velHistR, aprovHistR, velInstR, aprovInstR, descarteR] = await Promise.all([
@@ -612,12 +616,12 @@ app.get('/api/recurso/:recurso', async (req, res) => {
         const ayerStr = `${ayer.getFullYear()}${pad(ayer.getMonth()+1)}${pad(ayer.getDate())}`;
 
         const rVel = new sql.Request(connection); rVel.timeout = 60000;
-        rVel.input('recurso', sql.Int, recursoNum);
+        rVel.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rVel.input('inicio', sql.VarChar, toSqlStr(inicioLaboral));
         rVel.input('fin', sql.VarChar, toSqlStr(finLaboral));
 
         const rAprov = new sql.Request(connection); rAprov.timeout = 60000;
-        rAprov.input('recurso', sql.Int, recursoNum);
+        rAprov.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rAprov.input('fecha', sql.VarChar, ayerStr);
 
         // Ambas queries en paralelo
@@ -661,12 +665,12 @@ app.get('/api/recurso/:recurso/instantaneo', async (req, res) => {
         const hoyStr = `${ahora.getFullYear()}${pad(ahora.getMonth()+1)}${pad(ahora.getDate())}`;
 
         const rVel = new sql.Request(connection); rVel.timeout = 60000;
-        rVel.input('recurso', sql.Int, recursoNum);
+        rVel.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rVel.input('inicio', sql.VarChar, toSqlStr(inicioLaboral));
         rVel.input('fin', sql.VarChar, toSqlStr(ahora));
 
         const rAprov = new sql.Request(connection); rAprov.timeout = 60000;
-        rAprov.input('recurso', sql.Int, recursoNum);
+        rAprov.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rAprov.input('fecha', sql.VarChar, hoyStr);
 
         const [velR, aprovR] = await Promise.all([
@@ -693,53 +697,51 @@ app.get('/api/recurso/:recurso/instantaneo', async (req, res) => {
     }
 });
 
-// ===== ENDPOINT SEMANAL COMENTADO POR CONSUMO EXCESIVO DE RECURSOS =====
-// app.get('/api/recurso/:recurso/semanal', async (req, res) => {
-//     try {
-//         const recursoNum = parseInt(req.params.recurso, 10);
-//         if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso inválido' });
-//         const cacheKey = `recurso_sem_${recursoNum}`;
-//         const cached = getCached(cacheKey);
-//         if (cached) return res.json(cached);
-//         const connection = await connectTableroDB();
-//         const ahora = new Date();
-//         const mes = ahora.getMonth() + 1;
-//         const anio = ahora.getFullYear();
-//         const pad = n => String(n).padStart(2, '0');
-//         const lastDay = new Date(anio, ahora.getMonth() + 1, 0).getDate();
-//         const t0Sem = Date.now();
-//         const semanalRows = await fetchAprovMensual(connection, recursoNum, anio, mes, lastDay);
-//         console.log(`[SEMANAL] Recurso ${recursoNum}: ${semanalRows.length} filas en ${Date.now() - t0Sem}ms`);
-//         const rangos = [
-//             { semana: 1, dIni: 1, dFin: 7 }, { semana: 2, dIni: 8, dFin: 14 },
-//             { semana: 3, dIni: 15, dFin: 21 }, { semana: 4, dIni: 22, dFin: lastDay }
-//         ];
-//         const semanas = rangos.map(r => {
-//             const dias = semanalRows
-//                 .filter(row => { const d = diaDelMes(row.Fecha); return d != null && d >= r.dIni && d <= r.dFin; })
-//                 .map(row => ({
-//                     fecha: fromSqlDate(row.Fecha).split('T')[0],
-//                     tiempoDeUso: parseFloat(row.TiempoDeUso) || 0,
-//                     tiempoDisponible: parseFloat(row.TiempoDisponible) || 0,
-//                     aprovechamiento: parseFloat(row.Aprovechamiento) || 0,
-//                     unidad: (row.Unidad || 'min').trim()
-//                 }));
-//             const promedio = dias.length > 0
-//                 ? parseFloat((dias.reduce((s, d) => s + d.aprovechamiento, 0) / dias.length).toFixed(2)) : 0;
-//             return { semana: r.semana, dIni: r.dIni, dFin: r.dFin, promedio, cantDias: dias.length, dias };
-//         });
-//         const response = { success: true, data: { recurso: recursoNum, mes, anio, semanas } };
-//         setCache(cacheKey, response);
-//         res.json(response);
-//     } catch (error) {
-//         console.error(`❌ Error semanal recurso ${req.params.recurso}:`, error);
-//         res.status(500).json({ success: false, error: 'Error obteniendo datos semanales', details: error.message });
-//     }
-// });
-app.get('/api/recurso/:recurso/semanal', (req, res) => {
-    res.json({ success: false, error: 'Endpoint semanal deshabilitado temporalmente por rendimiento' });
+// ===== ENDPOINT SEMANAL =====
+app.get('/api/recurso/:recurso/semanal', async (req, res) => {
+    try {
+        const recursoNum = parseInt(req.params.recurso, 10);
+        if (isNaN(recursoNum)) return res.status(400).json({ success: false, error: 'Recurso inválido' });
+        const cacheKey = `recurso_sem_${recursoNum}`;
+        const cached = getCached(cacheKey);
+        if (cached) return res.json(cached);
+        const connection = await connectTableroDB();
+        const ahora = new Date();
+        const mes = ahora.getMonth() + 1;
+        const anio = ahora.getFullYear();
+        const pad = n => String(n).padStart(2, '0');
+        const lastDay = new Date(anio, ahora.getMonth() + 1, 0).getDate();
+        const t0Sem = Date.now();
+        const semanalRows = await fetchAprovMensual(connection, recursoNum, anio, mes, lastDay);
+        console.log(`[SEMANAL] Recurso ${recursoNum}: ${semanalRows.length} filas en ${Date.now() - t0Sem}ms`);
+        const rangos = [
+            { semana: 1, dIni: 1, dFin: 7 }, { semana: 2, dIni: 8, dFin: 14 },
+            { semana: 3, dIni: 15, dFin: 21 }, { semana: 4, dIni: 22, dFin: lastDay }
+        ];
+        const semanas = rangos.map(r => {
+            const dias = semanalRows
+                .filter(row => { const d = diaDelMes(row.Fecha); return d != null && d >= r.dIni && d <= r.dFin; })
+                .map(row => ({
+                    fecha: fromSqlDate(row.Fecha).split('T')[0],
+                    tiempoDeUso: parseFloat(row.TiempoDeUso) || 0,
+                    tiempoDisponible: parseFloat(row.TiempoDisponible) || 0,
+                    aprovechamiento: parseFloat(row.Aprovechamiento) || 0,
+                    unidad: (row.Unidad || 'min').trim()
+                }))
+                .sort((a, b) => a.fecha.localeCompare(b.fecha));
+            const promedio = dias.length > 0
+                ? parseFloat((dias.reduce((s, d) => s + d.aprovechamiento, 0) / dias.length).toFixed(2)) : 0;
+            return { semana: r.semana, dIni: r.dIni, dFin: r.dFin, promedio, cantDias: dias.length, dias };
+        });
+        const response = { success: true, data: { recurso: recursoNum, mes, anio, semanas } };
+        setCache(cacheKey, response);
+        res.json(response);
+    } catch (error) {
+        console.error(`❌ Error semanal recurso ${req.params.recurso}:`, error);
+        res.status(500).json({ success: false, error: 'Error obteniendo datos semanales', details: error.message });
+    }
 });
-// ===== FIN ENDPOINT SEMANAL COMENTADO =====
+// ===== FIN ENDPOINT SEMANAL =====
 
 app.get('/api/recurso/:recurso/descarte', async (req, res) => {
     try {
@@ -757,7 +759,7 @@ app.get('/api/recurso/:recurso/descarte', async (req, res) => {
         const pad = n => String(n).padStart(2, '0');
 
         const rDesc = new sql.Request(connection); rDesc.timeout = 60000;
-        rDesc.input('recurso', sql.Int, recursoNum);
+        rDesc.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
         rDesc.input('inicio', sql.VarChar, `${anio}${pad(mes)}01`);
 
         const result = await rDesc.query(`SET NOCOUNT ON; SELECT SUM(Teorico) AS TotalTeorico, SUM(Informado) AS TotalInformado, MIN(Unidad) AS Unidad FROM GCWin_V_PBI_RsDesc WITH (NOLOCK) WHERE Recurso=@recurso AND Fecha>=@inicio`);

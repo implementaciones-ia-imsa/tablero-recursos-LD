@@ -262,6 +262,46 @@ app.get('/api/diagnostico/:recurso', async (req, res) => {
     res.json({ success: true, recurso: recursoNum, totalMs, resultados });
 });
 
+// Endpoint para obtener recursos con estadísticas disponibles (dinámico)
+app.get('/api/recursos-disponibles', async (req, res) => {
+    try {
+        const cached = getCached('recursos_disponibles');
+        if (cached) return res.json(cached);
+
+        const connection = await connectTableroDB();
+        const request = new sql.Request(connection);
+        request.timeout = 60000;
+
+        const result = await request.query(`
+            SELECT DISTINCT CAST(RTRIM(Recurso) AS INT) AS numero
+            FROM GCWin_V_PBI_RsVeloc
+            WHERE CAST(RTRIM(Recurso) AS INT) < 1000
+            ORDER BY numero
+        `);
+
+        const recursosDisponibles = result.recordset.map(row => row.numero);
+
+        const response = {
+            success: true,
+            data: recursosDisponibles,
+            total: recursosDisponibles.length,
+            timestamp: new Date().toISOString()
+        };
+
+        setCache('recursos_disponibles', response);
+        res.json(response);
+
+    } catch (error) {
+        console.error('❌ Error obteniendo recursos disponibles:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error obteniendo recursos disponibles',
+            details: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Endpoint para obtener recursos
 app.get('/api/recursos', async (req, res) => {
     try {

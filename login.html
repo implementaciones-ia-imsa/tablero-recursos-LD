@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Monitor de Recursos I.M.S.A.</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
             --imsa-red-primary: #DC2626;
@@ -35,7 +37,6 @@
             overflow: hidden;
         }
 
-        /* Elementos decorativos de fondo */
         body::before {
             content: '';
             position: absolute;
@@ -76,7 +77,7 @@
             backdrop-filter: blur(10px);
             padding: 50px 40px;
             border-radius: 25px;
-            box-shadow: 
+            box-shadow:
                 0 25px 50px rgba(220, 38, 38, 0.2),
                 0 0 0 1px rgba(255, 255, 255, 0.2);
             width: 100%;
@@ -130,7 +131,6 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 8px;
-            text-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
         }
 
         .login-subtitle {
@@ -138,97 +138,6 @@
             color: var(--imsa-gray-medium);
             margin-bottom: 40px;
             font-weight: 500;
-        }
-
-        .form-group {
-            margin-bottom: 25px;
-            text-align: left;
-            position: relative;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--imsa-gray-dark);
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 16px 20px;
-            border: 2px solid #E5E7EB;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background-color: var(--imsa-gray-light);
-            font-weight: 500;
-            position: relative;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--imsa-red-primary);
-            background-color: var(--imsa-white);
-            box-shadow: 
-                0 0 0 3px rgba(220, 38, 38, 0.1),
-                0 4px 12px rgba(220, 38, 38, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .form-input:valid {
-            border-color: var(--imsa-red-secondary);
-        }
-
-        .login-button {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, var(--imsa-red-primary) 0%, var(--imsa-red-secondary) 50%, var(--imsa-red-dark) 100%);
-            color: var(--imsa-white);
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.3);
-        }
-
-        .login-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .login-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 35px rgba(220, 38, 38, 0.4);
-            background: linear-gradient(135deg, var(--imsa-red-secondary) 0%, var(--imsa-red-dark) 50%, #7F1D1D 100%);
-        }
-
-        .login-button:hover::before {
-            left: 100%;
-        }
-
-        .login-button:active {
-            transform: translateY(-1px);
-        }
-
-        .login-button:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
         }
 
         .error-message {
@@ -274,11 +183,10 @@
             }
         }
 
-        .footer-text {
-            margin-top: 35px;
-            font-size: 13px;
-            color: var(--imsa-gray-medium);
-            font-weight: 500;
+        #google-signin-btn {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
         }
 
         .loading {
@@ -308,21 +216,37 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Responsive Design - Mobile First */
-        @media (max-width: 768px) {
-            body::before,
-            body::after {
-                display: none; /* Remover efectos de fondo en móviles para mejor rendimiento */
-            }
+        .footer-text {
+            margin-top: 35px;
+            font-size: 13px;
+            color: var(--imsa-gray-medium);
+            font-weight: 500;
+        }
 
+        .info-text {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            color: #1E40AF;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
             .login-container {
                 padding: 40px 25px;
                 margin: 15px;
                 border-radius: 20px;
                 max-width: 95%;
-                backdrop-filter: blur(8px);
             }
-            
+
+            .logo {
+                width: 110px;
+                margin-bottom: 20px;
+            }
+
             .login-title {
                 font-size: 28px;
                 margin-bottom: 10px;
@@ -332,268 +256,6 @@
                 font-size: 15px;
                 margin-bottom: 35px;
             }
-
-            .logo {
-                width: 110px;
-                margin-bottom: 20px;
-            }
-
-            .form-group {
-                margin-bottom: 20px;
-            }
-
-            .form-input {
-                padding: 14px 16px;
-                font-size: 16px; /* Evita zoom en iOS */
-            }
-
-            .login-button {
-                padding: 16px;
-                font-size: 15px;
-                letter-spacing: 0.5px;
-            }
-
-            .footer-text {
-                margin-top: 30px;
-                font-size: 12px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 35px 20px;
-                margin: 10px;
-                border-radius: 18px;
-            }
-            
-            .login-title {
-                font-size: 24px;
-                margin-bottom: 8px;
-            }
-
-            .login-subtitle {
-                font-size: 14px;
-                margin-bottom: 30px;
-            }
-
-            .logo {
-                width: 100px;
-                margin-bottom: 18px;
-            }
-
-            .form-group {
-                margin-bottom: 18px;
-            }
-
-            .form-label {
-                font-size: 13px;
-                margin-bottom: 6px;
-            }
-
-            .form-input {
-                padding: 12px 14px;
-                font-size: 16px;
-                border-radius: 10px;
-            }
-
-            .login-button {
-                padding: 14px;
-                font-size: 14px;
-                letter-spacing: 0.3px;
-                border-radius: 10px;
-            }
-
-            .error-message,
-            .success-message {
-                padding: 12px 16px;
-                font-size: 14px;
-                border-radius: 10px;
-            }
-
-            .footer-text {
-                margin-top: 25px;
-                font-size: 11px;
-            }
-
-            .spinner {
-                width: 30px;
-                height: 30px;
-                border-width: 2px;
-            }
-
-            .loading p {
-                font-size: 13px;
-                margin-top: 8px;
-            }
-        }
-
-        @media (max-width: 360px) {
-            .login-container {
-                padding: 30px 15px;
-                margin: 8px;
-            }
-            
-            .login-title {
-                font-size: 22px;
-            }
-
-            .logo {
-                width: 90px;
-            }
-
-            .form-input {
-                padding: 11px 12px;
-            }
-
-            .login-button {
-                padding: 13px;
-                font-size: 13px;
-            }
-        }
-
-        /* Tablets y pantallas medianas */
-        @media (min-width: 769px) and (max-width: 1024px) {
-            .login-container {
-                max-width: 420px;
-                padding: 45px;
-            }
-
-            .logo {
-                width: 130px;
-            }
-
-            .login-title {
-                font-size: 30px;
-            }
-
-            .form-input {
-                padding: 17px 22px;
-            }
-
-            .login-button {
-                padding: 17px;
-            }
-        }
-
-        /* Pantallas grandes */
-        @media (min-width: 1025px) {
-            .login-container {
-                max-width: 480px;
-                padding: 55px 50px;
-            }
-
-            .logo {
-                width: 150px;
-                margin-bottom: 30px;
-            }
-
-            .login-title {
-                font-size: 34px;
-            }
-
-            .login-subtitle {
-                font-size: 17px;
-                margin-bottom: 45px;
-            }
-
-            .form-group {
-                margin-bottom: 30px;
-            }
-
-            .form-input {
-                padding: 18px 24px;
-                font-size: 17px;
-            }
-
-            .login-button {
-                padding: 18px;
-                font-size: 17px;
-            }
-        }
-
-        /* Orientación landscape en móviles */
-        @media (max-height: 600px) and (orientation: landscape) {
-            body {
-                padding: 10px 0;
-            }
-
-            .login-container {
-                margin: 10px auto;
-                padding: 25px 30px;
-                max-height: 90vh;
-                overflow-y: auto;
-            }
-
-            .logo {
-                width: 80px;
-                margin-bottom: 15px;
-            }
-
-            .login-title {
-                font-size: 22px;
-                margin-bottom: 5px;
-            }
-
-            .login-subtitle {
-                font-size: 13px;
-                margin-bottom: 20px;
-            }
-
-            .form-group {
-                margin-bottom: 15px;
-            }
-
-            .form-input {
-                padding: 10px 14px;
-            }
-
-            .login-button {
-                padding: 12px;
-            }
-
-            .footer-text {
-                margin-top: 15px;
-                font-size: 11px;
-            }
-        }
-
-        /* Alto contraste para accesibilidad */
-        @media (prefers-contrast: high) {
-            .login-container {
-                border: 2px solid var(--imsa-red-primary);
-                backdrop-filter: none;
-                background: var(--imsa-white);
-            }
-
-            .form-input {
-                border-width: 2px;
-            }
-
-            .form-input:focus {
-                border-width: 3px;
-            }
-        }
-
-        /* Reducir movimiento para usuarios sensibles */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-
-            body::before,
-            body::after {
-                animation: none;
-            }
-
-            .logo {
-                animation: none;
-            }
-
-            .login-container {
-                animation: none;
-            }
         }
     </style>
 </head>
@@ -602,131 +264,126 @@
         <img src="IMSA_Logo1-01 (1) (2).png" alt="IMSA Logo" class="logo">
         <h1 class="login-title">Bienvenido</h1>
         <p class="login-subtitle">Monitor de Recursos I.M.S.A.</p>
-        
+
+        <div id="info-message" class="info-text">
+            🔐 Acceso solo para usuarios con correo @imsa.com.ar
+        </div>
+
         <div id="error-message" class="error-message"></div>
         <div id="success-message" class="success-message"></div>
-        
-        <form id="login-form">
-            <div class="form-group">
-                <label for="username" class="form-label">Usuario:</label>
-                <input type="text" id="username" name="username" class="form-input" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="password" class="form-label">Contraseña:</label>
-                <input type="password" id="password" name="password" class="form-input" required>
-            </div>
-            
-            <button type="submit" class="login-button">Iniciar Sesión</button>
-            
-            <div id="loading" class="loading">
-                <div class="spinner"></div>
-                <p>Verificando credenciales...</p>
-            </div>
-        </form>
-        
+
+        <div id="google-signin-btn"></div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Verificando credenciales...</p>
+        </div>
+
         <p class="footer-text">© 2025 I.M.S.A. - Todos los derechos reservados</p>
     </div>
 
     <script>
-        // Credenciales válidas (configuradas por el administrador)
-        const VALID_CREDENTIALS = [
-            { username: 'alexander.kruszewski', password: 'imsa.recursos987' },
-            { username: 'gabriel.hengen', password: 'recursos.357' },
-            { username: 'admin', password: 'Password.2025!' },
-            { username: 'diego.tome', password: 'chacalbinari0!' },
-            { username: 'supervisores.imsa', password: 'supervisores135!' }
-        ];
+        const CLIENT_ID = 'TU_GOOGLE_CLIENT_ID_AQUI'; // Reemplazar con tu Client ID
+        const ALLOWED_DOMAIN = '@imsa.com.ar';
 
-        document.getElementById('login-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('error-message');
-            const successDiv = document.getElementById('success-message');
-            const loadingDiv = document.getElementById('loading');
-            const submitButton = document.querySelector('.login-button');
-            
-            // Limpiar mensajes previos
-            errorDiv.style.display = 'none';
-            successDiv.style.display = 'none';
-            
-            // Mostrar loading
-            loadingDiv.style.display = 'block';
-            submitButton.disabled = true;
-            
-            // Simular verificación con delay para mejor UX
-            setTimeout(() => {
-                if (validateCredentials(username, password)) {
-                    // Login exitoso
-                    const token = generateToken();
-                    const loginTime = Date.now();
-                    
-                    // Guardar datos de autenticación en localStorage
-                    localStorage.setItem('imsa_auth_token', token);
-                    localStorage.setItem('imsa_auth_user', username);
-                    localStorage.setItem('imsa_auth_time', loginTime.toString());
-                    
-                    // Mostrar mensaje de éxito
-                    successDiv.textContent = 'Login exitoso. Redirigiendo...';
-                    successDiv.style.display = 'block';
-                    
-                    // Redirigir después de un breve delay
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1000);
-                } else {
-                    // Credenciales incorrectas
-                    errorDiv.textContent = 'Usuario o contraseña incorrectos';
-                    errorDiv.style.display = 'block';
-                    document.getElementById('password').value = '';
-                    document.getElementById('password').focus();
-                }
-                
-                loadingDiv.style.display = 'none';
-                submitButton.disabled = false;
-            }, 800);
-        });
-
-        // Función para validar credenciales
-        function validateCredentials(username, password) {
-            return VALID_CREDENTIALS.some(cred => 
-                cred.username === username && cred.password === password
-            );
-        }
-
-        // Función para generar token simple
-        function generateToken() {
-            return Math.random().toString(36).substring(2) + Date.now().toString(36);
-        }
-
-        // Verificar si ya está autenticado al cargar la página
-        window.addEventListener('load', function() {
+        // Inicializar Google Sign-In
+        window.onload = function() {
+            // Verificar si ya está autenticado
             const token = localStorage.getItem('imsa_auth_token');
             const user = localStorage.getItem('imsa_auth_user');
             const loginTime = localStorage.getItem('imsa_auth_time');
-            
+
             if (token && user && loginTime) {
-                // Verificar si la sesión no ha expirado (24 horas)
                 const now = Date.now();
                 const sessionAge = now - parseInt(loginTime);
-                const maxAge = 24 * 60 * 60 * 1000; // 24 horas en milisegundos
-                
+                const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+
                 if (sessionAge < maxAge) {
-                    // Sesión válida, redirigir al tablero
                     window.location.href = 'index.html';
+                    return;
                 } else {
-                    // Sesión expirada, limpiar datos
                     localStorage.removeItem('imsa_auth_token');
                     localStorage.removeItem('imsa_auth_user');
                     localStorage.removeItem('imsa_auth_time');
                 }
             }
-        });
 
-        // Focus automático en el campo de usuario
-        document.getElementById('username').focus();
+            // Renderizar botón de Google
+            google.accounts.id.initialize({
+                client_id: CLIENT_ID,
+                callback: handleCredentialResponse,
+                error_callback: handleError
+            });
+
+            google.accounts.id.renderButton(
+                document.getElementById('google-signin-btn'),
+                {
+                    theme: 'outline',
+                    size: 'large',
+                    text: 'signin_with',
+                    width: '100%',
+                    locale: 'es'
+                }
+            );
+        };
+
+        function handleCredentialResponse(response) {
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            // Decodificar JWT
+            const token = response.credential;
+            const payload = JSON.parse(atob(token.split('.')[1]));
+
+            console.log('🔐 Payload:', payload);
+
+            // Validar dominio
+            if (!payload.email.endsWith(ALLOWED_DOMAIN)) {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `❌ Solo se permiten usuarios con dominio ${ALLOWED_DOMAIN}. Tu email es: ${payload.email}`;
+                errorDiv.style.display = 'block';
+
+                // Cerrar sesión de Google
+                google.accounts.id.disableAutoSelect();
+                return;
+            }
+
+            // Login exitoso
+            const authToken = generateToken();
+            const loginTime = Date.now();
+
+            localStorage.setItem('imsa_auth_token', authToken);
+            localStorage.setItem('imsa_auth_user', payload.email);
+            localStorage.setItem('imsa_auth_time', loginTime.toString());
+            localStorage.setItem('imsa_auth_name', payload.name);
+            localStorage.setItem('imsa_auth_picture', payload.picture);
+
+            successDiv.textContent = `✅ Bienvenido ${payload.name}. Redirigiendo...`;
+            successDiv.style.display = 'block';
+
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1500);
+        }
+
+        function handleError(error) {
+            console.error('Error en Google Sign-In:', error);
+            const errorDiv = document.getElementById('error-message');
+            const loadingDiv = document.getElementById('loading');
+
+            loadingDiv.style.display = 'none';
+            errorDiv.textContent = 'Error al procesar Google Sign-In. Intenta nuevamente.';
+            errorDiv.style.display = 'block';
+        }
+
+        function generateToken() {
+            return Math.random().toString(36).substring(2) + Date.now().toString(36);
+        }
     </script>
 </body>
 </html>

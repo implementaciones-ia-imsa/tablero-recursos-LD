@@ -1,39 +1,43 @@
-# Dependencies
+# Dependencias
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+package-lock.json
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Variables de entorno
+.env
+.env.local
+.env.*.local
 
 # Logs
 logs/
 *.log
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # PM2
-.pm2
-
-# OS
-.DS_Store
-Thumbs.db
+pm2.pid
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# Temporary files
-tmp/
-temp/ .claude/
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.temp
+.claude/
+.vercelignore
+
+# Archivos de prueba
+test-*.html
+*-old.*
+
+# Credenciales
+credentials.json
+secrets.json

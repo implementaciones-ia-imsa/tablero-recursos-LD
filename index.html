@@ -1197,10 +1197,25 @@
             sound: true
         };
 
+        // Cargar dinámicamente recursos con estadísticas disponibles
+        async function loadRecursosDisponibles() {
+            try {
+                const data = await fetchFromAPI('/api/recursos-disponibles');
+                if (data.success && Array.isArray(data.data)) {
+                    RECURSOS_CON_DETALLE = data.data;
+                    console.log(`✅ Cargados ${RECURSOS_CON_DETALLE.length} recursos con estadísticas disponibles`);
+                } else {
+                    console.warn('⚠ No se pudieron cargar recursos disponibles, usando lista vacía');
+                }
+            } catch (error) {
+                console.error('❌ Error cargando recursos disponibles:', error);
+            }
+        }
+
         // Función para hacer peticiones al servidor ngrok
         async function fetchFromAPI(endpoint, options = {}) {
             const url = `${API_BASE_URL}${endpoint}`;
-            
+
             try {
                 const response = await fetch(url, {
                     ...options,
@@ -1210,11 +1225,11 @@
                         ...options.headers
                     }
                 });
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+
                 return await response.json();
             } catch (error) {
                 console.error(`Error en ${endpoint}:`, error);
@@ -1268,14 +1283,8 @@
             }
         }
 
-        // Recursos con detalle habilitado (clickeables)
-        const RECURSOS_CON_DETALLE = [
-            102, 103, 109, 111, 120, 124, 129, 131,
-            201, 202, 203, 209,
-            301,
-            401, 402, 404, 405, 406, 418, 419,
-            602, 603, 605
-        ];
+        // Recursos con detalle habilitado se cargan dinámicamente del servidor
+        let RECURSOS_CON_DETALLE = [];
 
         // Crear elemento HTML para un recurso
         function createResourceElement(recurso) {
@@ -1884,15 +1893,18 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
                     `${API_BASE_URL}/api/test-connection`
                 ]
             });
-            
+
             updateDateTime();
             initializeUserInfo();
             configurarEventosPestanas();
             configurarEventosNotificaciones();
-            
+
             // Inicializar Service Worker
             await initServiceWorker();
-            
+
+            // Cargar recursos disponibles PRIMERO
+            await loadRecursosDisponibles();
+
             // Probar conexión y cargar datos iniciales
             const connected = await testConnection();
             if (connected) {
@@ -1901,7 +1913,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             } else {
                 showError('No se pudo conectar con el servidor. Verifica la URL de ngrok.');
             }
-            
+
             // Configurar intervalos
             setInterval(updateDateTime, 1000); // Actualizar fecha/hora cada segundo
             setInterval(blinkStoppedMachines, 1000); // Efecto de parpadeo

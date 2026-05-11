@@ -71,6 +71,11 @@ const tableroConfig = {
 // ===== MIDDLEWARE =====
 app.use(helmet({
     contentSecurityPolicy: false, // Deshabilitamos CSP para permitir inline scripts
+    // Permitir que la ventana popup de Google Sign-In (accounts.google.com)
+    // pueda comunicar el credential de vuelta vía window.opener.postMessage.
+    // El default de helmet ('same-origin') rompe window.opener y deja el popup
+    // colgado en accounts.google.com/gsi/transform.
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 }));
 app.use(compression());
 app.use(morgan('short'));

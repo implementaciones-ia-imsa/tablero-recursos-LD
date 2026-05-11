@@ -824,6 +824,97 @@ app.get('/api/recurso/:recurso/descarte', async (req, res) => {
     }
 });
 
+// ===== AUTENTICACIÓN LOCAL =====
+// Solo se acepta cuando el request proviene de un host de red interna,
+// para que en producción (Vercel/Internet) el endpoint quede inhabilitado
+// aunque el password sea conocido.
+const LOCAL_USER = 'admin';
+const LOCAL_PASS = 'password123';
+
+function isLocalHost(req) {
+    const forwardedHost = (req.headers['x-forwarded-host'] || '').toLowerCase().split(',')[0].trim();
+    const host = (forwardedHost || req.hostname || '').toLowerCase();
+    if (!host) return false;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+    if (host.startsWith('svr-ia-2')) return true;
+    // IPs privadas RFC1918
+    if (/^192\.168\.\d+\.\d+$/.test(host)) return true;
+    if (/^10\.\d+\.\d+\.\d+$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host)) return true;
+    return false;
+}
+
+app.get('/api/auth/local-allowed', (req, res) => {
+    res.json({ allowed: isLocalHost(req), host: req.hostname });
+});
+
+app.post('/api/auth/local', (req, res) => {
+    if (!isLocalHost(req)) {
+        return res.status(403).json({ success: false, error: 'Inicio de sesión local no disponible en este host' });
+    }
+    const { username, password } = req.body || {};
+    if (username !== LOCAL_USER || password !== LOCAL_PASS) {
+        saveLog('auth_local_fail', { username, ip: req.ip, host: req.hostname });
+        return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
+    }
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    saveLog('auth_local_ok', { username, ip: req.ip, host: req.hostname });
+    res.json({
+        success: true,
+        token,
+        user: { email: 'admin@local', name: 'Administrador local' },
+        timestamp: new Date().toISOString()
+    });
+});
+
+// ===== CONSUMO ENERGÉTICO (últimos 30 días) =====
+app.get('/api/recurso/:recurso/consumo-energetico', async (req, res) => {
+    try {
+        const recursoNum = parseInt(req.params.recurso, 10);
+        if (isNaN(recursoNum)) {
+            return res.status(400).json({ success: false, error: 'Recurso debe ser un número' });
+        }
+
+        const cacheKey = `consumo_ene_${recursoNum}`;
+        const cached = getCached(cacheKey);
+        if (cached) return res.json(cached);
+
+        const connection = await connectTableroDB();
+        const request = new sql.Request(connection);
+        request.timeout = 30000;
+        request.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
+
+        const result = await request.query(`
+            SET NOCOUNT ON;
+            SELECT TOP 30 Fecha, Valor, Unidad
+            FROM GCWin_V_PBI_CmoEne WITH (NOLOCK)
+            WHERE Recurso = @recurso
+            ORDER BY Fecha DESC
+        `);
+
+        // Reordenar cronológicamente ascendente para el gráfico
+        const datos = result.recordset
+            .map(r => ({
+                fecha:  fromSqlDate(r.Fecha),
+                valor:  parseFloat(r.Valor) || 0,
+                unidad: (r.Unidad || '').trim()
+            }))
+            .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+        const response = {
+            success: true,
+            data: { recurso: recursoNum, datos },
+            timestamp: new Date().toISOString()
+        };
+        setCache(cacheKey, response);
+        res.json(response);
+
+    } catch (error) {
+        console.error(`❌ Error consumo energético recurso ${req.params.recurso}:`, error);
+        res.status(500).json({ success: false, error: 'Error obteniendo consumo energético', details: error.message });
+    }
+});
+
 // ===== RUTA PRINCIPAL =====
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

@@ -960,11 +960,13 @@
                                 <button class="tab-button active" data-section="1">CABLES - SECCIÓN 1</button>
                                 <button class="tab-button" data-section="2">CABLES - SECCIÓN 2</button>
                                 <button class="tab-button" data-section="3">CABLES - SECCIÓN 3</button>
+                                <button class="tab-button" data-section="4">CABLES - SECCIÓN TREFILERÍA</button>
+                                <button class="tab-button" data-section="5">CABLES - SECCIÓN CTC</button>
                                 <button class="autoplay-button" id="autoplay-button" title="Cambio automático cada 30s">
                                     🔄 AUTO
                                 </button>
                         </div>
-                            
+
                             <div class="tab-content active" id="seccion-1">
                                 <div class="section-stats" id="stats-1"></div>
                                 <div class="grid-container" id="recursos-container-1">
@@ -973,7 +975,7 @@
                         </div>
                         </div>
                         </div>
-                            
+
                             <div class="tab-content" id="seccion-2">
                                 <div class="section-stats" id="stats-2"></div>
                                 <div class="grid-container" id="recursos-container-2">
@@ -982,7 +984,7 @@
                         </div>
                         </div>
                         </div>
-                            
+
                             <div class="tab-content" id="seccion-3">
                                 <div class="section-stats" id="stats-3"></div>
                                 <div class="grid-container" id="recursos-container-3">
@@ -991,6 +993,24 @@
                         </div>
                         </div>
                         </div>
+
+                            <div class="tab-content" id="seccion-4">
+                                <div class="section-stats" id="stats-4"></div>
+                                <div class="grid-container" id="recursos-container-4">
+                                    <div class="loading-message">
+                                        <p>Cargando recursos de Trefilería...</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-content" id="seccion-5">
+                                <div class="section-stats" id="stats-5"></div>
+                                <div class="grid-container" id="recursos-container-5">
+                                    <div class="loading-message">
+                                        <p>Cargando recursos de CTC...</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         </div>
                         </div>
@@ -1043,6 +1063,14 @@
                                 <div class="metric-section">
                                     <span class="section-label">Sección 3:</span>
                                     <span class="metric-value" id="interrupciones-3">0.0 hrs</span>
+                                </div>
+                                <div class="metric-section">
+                                    <span class="section-label">Trefilería:</span>
+                                    <span class="metric-value" id="interrupciones-4">0.0 hrs</span>
+                                </div>
+                                <div class="metric-section">
+                                    <span class="section-label">CTC:</span>
+                                    <span class="metric-value" id="interrupciones-5">0.0 hrs</span>
                                 </div>
                                 <div class="metric-section total">
                                     <span class="section-label">Total General:</span>
@@ -1168,10 +1196,15 @@
         let recursos = [];
         let lastUpdateTime = null;
         let isConnected = false;
+        const SECCIONES = [1, 2, 3, 4, 5];
+        // Secciones con objetivo de Kg (Trefilería y CTC no tienen objetivo medible)
+        const SECCIONES_CON_OBJETIVO = [1, 2, 3];
         let recursosPorSeccion = {
             1: [],
             2: [],
-            3: []
+            3: [],
+            4: [],
+            5: []
         };
         let currentSection = 1;
         let objetivosPorSeccion = {
@@ -1342,17 +1375,13 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             }
         }
 
-        // Agrupar recursos por sección
+        // Agrupar recursos por sección (1-3 cables, 4 trefilería 401-419, 5 CTC 501-503)
         function agruparRecursosPorSeccion() {
-            recursosPorSeccion = {
-                1: [],
-                2: [],
-                3: []
-            };
-            
+            recursosPorSeccion = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+
             recursos.forEach(recurso => {
-                const primerDigito = parseInt(recurso.numero.toString().charAt(0));
-                if (primerDigito >= 1 && primerDigito <= 3) {
+                const primerDigito = parseInt(recurso.numero.toString().trim().charAt(0));
+                if (SECCIONES.includes(primerDigito)) {
                     recursosPorSeccion[primerDigito].push(recurso);
                 }
             });
@@ -1454,23 +1483,25 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
         // Actualizar métricas en el panel izquierdo
         function actualizarMetricas() {
             let totalInterrupcionesGeneral = 0;
-            
-            for (let seccion = 1; seccion <= 3; seccion++) {
+
+            SECCIONES.forEach(seccion => {
                 const metricas = calcularMetricasSeccion(seccion);
-                
-                // Actualizar TN Objetivo/Actual
-                document.getElementById(`tn-objetivo-${seccion}`).textContent = metricas.kgObjetivo.toLocaleString();
-                document.getElementById(`tn-actual-${seccion}`).textContent = metricas.kgActual.toLocaleString();
-                
-                // Actualizar tiempo de interrupciones
-                document.getElementById(`interrupciones-${seccion}`).textContent = 
-                    `${metricas.horasInterrupcion.toFixed(1)} hrs`;
-                
+
+                // Objetivo solo para secciones que lo tengan definido
+                if (SECCIONES_CON_OBJETIVO.includes(seccion)) {
+                    const objEl = document.getElementById(`tn-objetivo-${seccion}`);
+                    const actEl = document.getElementById(`tn-actual-${seccion}`);
+                    if (objEl) objEl.textContent = metricas.kgObjetivo.toLocaleString();
+                    if (actEl) actEl.textContent = metricas.kgActual.toLocaleString();
+                }
+
+                const intEl = document.getElementById(`interrupciones-${seccion}`);
+                if (intEl) intEl.textContent = `${metricas.horasInterrupcion.toFixed(1)} hrs`;
+
                 totalInterrupcionesGeneral += metricas.horasInterrupcion;
-            }
-            
-            // Actualizar total general de interrupciones
-            document.getElementById('interrupciones-total').textContent = 
+            });
+
+            document.getElementById('interrupciones-total').textContent =
                 `${totalInterrupcionesGeneral.toFixed(1)} hrs`;
         }
 
@@ -1493,24 +1524,21 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
         // Renderizar todos los recursos
         function renderRecursos() {
             agruparRecursosPorSeccion();
-            
-            // Renderizar cada sección
-            for (let seccion = 1; seccion <= 3; seccion++) {
+
+            SECCIONES.forEach(seccion => {
                 renderEstadisticasSeccion(seccion);
                 renderRecursosSeccion(seccion);
-            }
-            
-            // Actualizar métricas
+            });
+
             actualizarMetricas();
-            
-            // Verificar alertas
             checkAlerts();
         }
 
         // Mostrar mensaje de error
         function showError(message) {
-            for (let seccion = 1; seccion <= 3; seccion++) {
+            SECCIONES.forEach(seccion => {
                 const container = document.getElementById(`recursos-container-${seccion}`);
+                if (!container) return;
                 container.innerHTML = `
                     <div class="error-message">
                         <p><strong>Error de conexión</strong></p>
@@ -1518,7 +1546,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
                         <p>Verifica que la URL de ngrok sea correcta: ${API_BASE_URL}</p>
                     </div>
                 `;
-            }
+            });
         }
 
         // Manejar cambio de pestañas
@@ -1541,8 +1569,11 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             }
             
             autoplayInterval = setInterval(() => {
-                // Cambiar a la siguiente sección (1 -> 2 -> 3 -> 1)
-                const nextSection = currentSection >= 3 ? 1 : currentSection + 1;
+                // Cambiar a la siguiente sección (cicla por todas las secciones disponibles)
+                const idx = SECCIONES.indexOf(currentSection);
+                const nextSection = idx === -1 || idx === SECCIONES.length - 1
+                    ? SECCIONES[0]
+                    : SECCIONES[idx + 1];
                 cambiarPestana(nextSection);
             }, autoplayTimer);
             
@@ -1729,7 +1760,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             
             // Solo verificar en horas laborales
             if (hour >= 6 && hour <= 22) {
-                for (let seccion = 1; seccion <= 3; seccion++) {
+                SECCIONES_CON_OBJETIVO.forEach(seccion => {
                     const metricas = calcularMetricasSeccion(seccion);
                     const porcentaje = (metricas.kgActual / metricas.kgObjetivo) * 100;
                     
@@ -1740,7 +1771,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
                             `objetivo-seccion-${seccion}`
                         );
                     }
-                }
+                });
             }
         }
 

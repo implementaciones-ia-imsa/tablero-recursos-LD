@@ -337,6 +337,19 @@
         </div>
     </div>
 
+    <!-- ── SECCIÓN 5: CONSUMO ENERGÉTICO ────────────── -->
+    <div class="section-divider" id="cmo-divider" style="display:none">
+        <span class="sl-title">Consumo Energético</span>
+        <span class="sl-period" id="cmo-label">Últimos 30 días</span>
+    </div>
+    <div class="section-full" id="cmo-section" style="display:none">
+        <div class="card">
+            <div class="card-title">Consumo diario</div>
+            <div class="card-sub">Valor reportado por día para este recurso</div>
+            <div id="cmo-wrapper"></div>
+        </div>
+    </div>
+
 </div>
 
 <!-- Error inicial -->
@@ -799,6 +812,113 @@ function renderDescarte(descarte, mes, anio) {
     });
 }
 
+// ─── RENDER: CONSUMO ENERGÉTICO ───────────────────────────────────
+function renderConsumoEnergetico(datos) {
+    const divider = document.getElementById('cmo-divider');
+    const section = document.getElementById('cmo-section');
+    const wrapper = document.getElementById('cmo-wrapper');
+
+    if (!Array.isArray(datos) || datos.length === 0) {
+        // No hay datos para este recurso → la sección permanece oculta
+        divider.style.display = 'none';
+        section.style.display = 'none';
+        return;
+    }
+
+    divider.style.display = 'flex';
+    section.style.display = 'block';
+
+    const unidad = datos[0]?.unidad || '';
+    const labels = datos.map(d => {
+        const dt = new Date(d.fecha);
+        return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const valores = datos.map(d => d.valor);
+    const fechas  = datos.map(d => d.fecha);
+
+    // Rango y barra de referencia (promedio)
+    const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
+
+    // Etiqueta de período: primer y último día con dato
+    const primer = new Date(fechas[0]);
+    const ultimo = new Date(fechas[fechas.length - 1]);
+    const fmt = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    document.getElementById('cmo-label').textContent = `${fmt(primer)} → ${fmt(ultimo)}`;
+
+    wrapper.innerHTML = '<canvas id="cmo-chart" style="max-height:340px"></canvas>';
+    const ctx = document.getElementById('cmo-chart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: `Consumo (${unidad})`,
+                    data: valores,
+                    backgroundColor: 'rgba(59,130,246,0.75)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    type: 'line',
+                    label: `Promedio (${promedio.toFixed(2)} ${unidad})`,
+                    data: valores.map(() => promedio),
+                    borderColor: '#f59e0b',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#94a3b8', font: { size: 11, family: 'Montserrat' } }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    titleColor: '#94a3b8',
+                    bodyColor: '#f1f5f9',
+                    padding: 10,
+                    callbacks: {
+                        title: items => {
+                            const dt = new Date(fechas[items[0].dataIndex]);
+                            return dt.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+                        },
+                        label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(2)} ${unidad}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid:   { color: 'rgba(51,65,85,0.3)' },
+                    ticks:  { color: '#64748b', font: { size: 11, family: 'Montserrat' }, maxRotation: 0 },
+                    border: { color: '#334155' }
+                },
+                y: {
+                    grid:   { color: 'rgba(51,65,85,0.3)' },
+                    ticks:  { color: '#64748b', font: { size: 11, family: 'Montserrat' }, callback: v => `${v} ${unidad}` },
+                    border: { color: '#334155' },
+                    beginAtZero: true,
+                    title:  { display: true, text: `Consumo (${unidad})`, color: '#475569', font: { size: 11, family: 'Montserrat' } }
+                }
+            }
+        }
+    });
+}
+
 // ─── LOAD ALL (v4: carga progresiva - cada sección aparece cuando llega) ───
 async function loadAll() {
     console.log('[recurso.html v4] loadAll progresivo para recurso', recurso);
@@ -869,8 +989,19 @@ async function loadAll() {
         }
     });
 
+    // Consumo energético: solo se muestra si el recurso tiene datos en GCWin_V_PBI_CmoEne
+    const cmoPromise = load(`/api/recurso/${recurso}/consumo-energetico`).then(json => {
+        try {
+            if (json.success) {
+                renderConsumoEnergetico(json.data.datos);
+            }
+        } catch (e) {
+            console.error('[consumo-energetico] error render:', e);
+        }
+    });
+
     // Esperar a que terminen todas (sin bloquear entre sí)
-    await Promise.allSettled([histPromise, instPromise, descPromise]);
+    await Promise.allSettled([histPromise, instPromise, descPromise, cmoPromise]);
     console.log('[loadAll] Todas las secciones cargadas');
 }
 </script>

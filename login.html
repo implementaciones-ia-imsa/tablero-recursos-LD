@@ -189,6 +189,87 @@
             margin: 20px 0;
         }
 
+        /* ===== Form local (solo visible cuando el host es de red interna) ===== */
+        #local-login {
+            display: none;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        #local-login .field {
+            margin-bottom: 14px;
+        }
+
+        #local-login label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--imsa-gray-dark);
+            margin-bottom: 6px;
+        }
+
+        #local-login input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #E5E7EB;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--imsa-gray-dark);
+            background: var(--imsa-white);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        #local-login input:focus {
+            outline: none;
+            border-color: var(--imsa-red-primary);
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+        }
+
+        #local-login button[type="submit"] {
+            width: 100%;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, var(--imsa-red-primary) 0%, var(--imsa-red-dark) 100%);
+            color: white;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+        }
+
+        #local-login button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35);
+        }
+
+        #local-login button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .divider-or {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            color: var(--imsa-gray-medium);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 18px 0 12px;
+        }
+
+        .divider-or::before,
+        .divider-or::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #E5E7EB;
+        }
+
         .loading {
             display: none;
             margin-top: 15px;
@@ -272,6 +353,20 @@
         <div id="error-message" class="error-message"></div>
         <div id="success-message" class="success-message"></div>
 
+        <form id="local-login" autocomplete="off">
+            <div class="field">
+                <label for="local-username">Usuario</label>
+                <input type="text" id="local-username" name="username" autocomplete="username" required>
+            </div>
+            <div class="field">
+                <label for="local-password">Contraseña</label>
+                <input type="password" id="local-password" name="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" id="local-submit">Ingresar</button>
+        </form>
+
+        <div class="divider-or" id="divider-or">o</div>
+
         <div id="google-signin-btn"></div>
 
         <div id="loading" class="loading" style="display: none;">
@@ -285,6 +380,17 @@
     <script>
         const CLIENT_ID = '58004563331-2nchpoun2e6ddlkmp7idqetkaqiiiko1.apps.googleusercontent.com';
         const ALLOWED_DOMAIN = '@imsa.com.ar';
+
+        function isLocalHost(hostname) {
+            const h = (hostname || '').toLowerCase();
+            if (!h) return false;
+            if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return true;
+            if (h.startsWith('svr-ia-2')) return true;
+            if (/^192\.168\.\d+\.\d+$/.test(h)) return true;
+            if (/^10\.\d+\.\d+\.\d+$/.test(h)) return true;
+            if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(h)) return true;
+            return false;
+        }
 
         // Inicializar Google Sign-In
         window.onload = function() {
@@ -308,7 +414,16 @@
                 }
             }
 
-            // Renderizar botón de Google
+            // En hosts de red interna mostramos el form de usuario/clave junto al botón de Google.
+            // En producción (Vercel) solo se muestra Google.
+            const localAvailable = isLocalHost(window.location.hostname);
+            if (localAvailable) {
+                document.getElementById('local-login').style.display = 'block';
+                document.getElementById('divider-or').style.display = 'flex';
+                document.getElementById('local-login').addEventListener('submit', handleLocalSubmit);
+            }
+
+            // Renderizar botón de Google. width debe ser número en pixels (no "100%").
             google.accounts.id.initialize({
                 client_id: CLIENT_ID,
                 callback: handleCredentialResponse,
@@ -321,11 +436,55 @@
                     theme: 'outline',
                     size: 'large',
                     text: 'signin_with',
-                    width: '100%',
+                    width: 360,
                     locale: 'es'
                 }
             );
         };
+
+        async function handleLocalSubmit(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('local-submit');
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+            const loadingDiv = document.getElementById('loading');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            submitBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+
+            try {
+                const username = document.getElementById('local-username').value.trim();
+                const password = document.getElementById('local-password').value;
+
+                const response = await fetch('/api/auth/local', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || `Error ${response.status}`);
+                }
+
+                localStorage.setItem('imsa_auth_token', data.token);
+                localStorage.setItem('imsa_auth_user', data.user.email);
+                localStorage.setItem('imsa_auth_time', Date.now().toString());
+                localStorage.setItem('imsa_auth_name', data.user.name);
+                localStorage.removeItem('imsa_auth_picture');
+
+                successDiv.textContent = `✅ Bienvenido ${data.user.name}. Redirigiendo...`;
+                successDiv.style.display = 'block';
+                setTimeout(() => { window.location.href = 'index.html'; }, 800);
+            } catch (err) {
+                loadingDiv.style.display = 'none';
+                submitBtn.disabled = false;
+                errorDiv.textContent = `❌ ${err.message}`;
+                errorDiv.style.display = 'block';
+            }
+        }
 
         function handleCredentialResponse(response) {
             const loadingDiv = document.getElementById('loading');

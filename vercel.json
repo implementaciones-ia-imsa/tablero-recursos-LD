@@ -1,6 +1,11 @@
 {
   "version": 2,
   "public": true,
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  },
   "builds": [
     {
       "src": "server.js",

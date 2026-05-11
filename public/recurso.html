@@ -925,7 +925,11 @@ async function loadAll() {
 
     function load(url) {
         const t0 = performance.now();
-        return fetch(url)
+        return fetch(url, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        })
             .then(r => r.json())
             .then(json => { console.log(`[FETCH OK] ${url} en ${(performance.now()-t0).toFixed(0)}ms`); return json; })
             .catch(err => { console.error(`[FETCH ERROR] ${url}`, err); return { success: false, error: err.message }; });

@@ -1,21 +1,40 @@
 {
   "version": 2,
   "public": true,
+  "buildCommand": "npm install",
+  "outputDirectory": ".",
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://peaceful-monitor-dashing.ngrok-free.app/api/:path*"
+      "destination": "/api/:path*"
     },
-    { "source": "/", "destination": "/login.html" }
+    {
+      "source": "/((?!api|login|index|recurso|detalle|IMSA).)*$",
+      "destination": "/login.html"
+    }
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/login.html",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=3600"
-        },
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
         {
           "key": "Access-Control-Allow-Origin",
           "value": "*"

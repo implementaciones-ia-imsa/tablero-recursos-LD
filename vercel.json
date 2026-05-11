@@ -1,20 +1,11 @@
 {
   "version": 2,
   "public": true,
-  "builds": [
+  "outputDirectory": "public",
+  "rewrites": [
     {
-      "src": "server.js",
-      "use": "@vercel/node",
-      "config": {
-        "memory": 512,
-        "maxDuration": 60
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
+      "source": "/api/(.*)",
+      "destination": "https://swaddling-mummified-unusable.ngrok-free.dev/api/$1"
     }
   ]
 }

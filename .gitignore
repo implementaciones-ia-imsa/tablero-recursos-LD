@@ -41,3 +41,5 @@ test-*.html
 # Credenciales
 credentials.json
 secrets.json
+
+.vercel

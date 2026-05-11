@@ -1,45 +1,22 @@
 {
   "version": 2,
   "public": true,
-  "buildCommand": "npm install",
-  "outputDirectory": ".",
-  "rewrites": [
+  "functions": {
+    "server.js": {
+      "memory": 512,
+      "maxDuration": 60
+    }
+  },
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/((?!api|login|index|recurso|detalle|IMSA).)*$",
-      "destination": "/login.html"
+      "src": "server.js",
+      "use": "@vercel/node"
     }
   ],
-  "headers": [
+  "routes": [
     {
-      "source": "/login.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ]
+      "src": "/(.*)",
+      "dest": "server.js"
     }
   ]
 }

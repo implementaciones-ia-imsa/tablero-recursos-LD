@@ -237,6 +237,40 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* ── CONSUMO ENERGÉTICO TOTAL ─── */
+        .cmo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+
+        .cmo-total-box {
+            background: rgba(59, 130, 246, 0.10);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 10px;
+            padding: 10px 18px;
+            text-align: right;
+            min-width: 180px;
+        }
+
+        .cmo-total-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #3b82f6;
+        }
+
+        .cmo-total-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+            color: var(--text-secondary);
+        }
+
         /* ── SEMANAL ──────────────────── */
         .chart-tip {
             font-size: 0.68rem;
@@ -344,8 +378,16 @@
     </div>
     <div class="section-full" id="cmo-section" style="display:none">
         <div class="card">
-            <div class="card-title">Consumo diario</div>
-            <div class="card-sub">Valor reportado por día para este recurso</div>
+            <div class="cmo-header">
+                <div>
+                    <div class="card-title">Consumo diario</div>
+                    <div class="card-sub">Valor reportado por día para este recurso</div>
+                </div>
+                <div class="cmo-total-box" id="cmo-total-box" style="display:none">
+                    <div class="cmo-total-value" id="cmo-total-value">—</div>
+                    <div class="cmo-total-label">Total acumulado del período</div>
+                </div>
+            </div>
             <div id="cmo-wrapper"></div>
         </div>
     </div>
@@ -836,8 +878,16 @@ function renderConsumoEnergetico(datos) {
     const valores = datos.map(d => d.valor);
     const fechas  = datos.map(d => d.fecha);
 
-    // Rango y barra de referencia (promedio)
-    const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
+    // Total acumulado y promedio
+    const total    = valores.reduce((a, b) => a + b, 0);
+    const promedio = total / valores.length;
+
+    // Mostrar total en la cabecera de la card
+    const totalBox = document.getElementById('cmo-total-box');
+    const totalVal = document.getElementById('cmo-total-value');
+    const totalFmt = total.toLocaleString('es-AR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    totalVal.textContent = `${totalFmt} ${unidad}`.trim();
+    totalBox.style.display = 'block';
 
     // Etiqueta de período: primer y último día con dato
     const primer = new Date(fechas[0]);

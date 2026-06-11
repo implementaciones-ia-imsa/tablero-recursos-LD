@@ -19,7 +19,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://swaddling-mummified-unusable.ngrok-free.dev/api/$1"
+      "dest": "https://predemocratic-dwayne-quondam.ngrok-free.dev/api/$1"
     },
     {
       "src": "/(.*)",

@@ -19,7 +19,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://predemocratic-dwayne-quondam.ngrok-free.dev/api/$1"
+      "dest": "https://peaceful-monitor-dashing.ngrok-free.app/api/$1"
     },
     {
       "src": "/(.*)",

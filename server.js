@@ -872,7 +872,7 @@ app.post('/api/auth/local', (req, res) => {
     });
 });
 
-// ===== CONSUMO ENERGÉTICO (últimos 30 días) =====
+// ===== CONSUMO ENERGÉTICO (desde el 1° del mes actual hasta hoy) =====
 app.get('/api/recurso/:recurso/consumo-energetico', async (req, res) => {
     try {
         const recursoNum = parseInt(req.params.recurso, 10);
@@ -887,13 +887,24 @@ app.get('/api/recurso/:recurso/consumo-energetico', async (req, res) => {
         const connection = await connectTableroDB();
         const request = new sql.Request(connection);
         request.timeout = 30000;
+
+        // Rango: desde el 1° del mes actual hasta el día de hoy (zona horaria local)
+        const pad = n => String(n).padStart(2, '0');
+        const hoy = new Date();
+        const fechaInicio = `${hoy.getFullYear()}${pad(hoy.getMonth() + 1)}01`;
+        const fechaFin    = `${hoy.getFullYear()}${pad(hoy.getMonth() + 1)}${pad(hoy.getDate())}`;
+
         request.input('recurso', sql.VarChar(10), padRecurso(recursoNum));
+        request.input('fechaInicio', sql.VarChar, fechaInicio);
+        request.input('fechaFin', sql.VarChar, fechaFin);
 
         const result = await request.query(`
             SET NOCOUNT ON;
-            SELECT TOP 30 Fecha, Valor, Unidad
+            SELECT Fecha, Valor, Unidad
             FROM GCWin_V_PBI_CmoEne WITH (NOLOCK)
             WHERE Recurso = @recurso
+              AND Fecha >= @fechaInicio
+              AND Fecha <= @fechaFin
             ORDER BY Fecha DESC
         `);
 

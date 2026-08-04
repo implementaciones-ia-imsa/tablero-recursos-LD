@@ -320,6 +320,7 @@ app.get('/api/recursos', async (req, res) => {
         const result = await request.query(`
             SELECT
                 Recurso,
+                Multiplicidad,
                 Estado,
                 MotivoInterrup,
                 Operarios,
@@ -330,7 +331,7 @@ app.get('/api/recursos', async (req, res) => {
                 MinsInterrupDelDia,
                 MinsEstadoActual
             FROM GCWin_V_EstadoRecursosCables
-            ORDER BY Recurso
+            ORDER BY Recurso, TRY_CAST(Multiplicidad AS INT)
         `);
 
         // Procesar los datos
@@ -346,6 +347,8 @@ app.get('/api/recursos', async (req, res) => {
             
             return {
                 numero: row.Recurso,
+                // Posición dentro de una máquina múltiple (vacío si el recurso es simple)
+                multiplicidad: (row.Multiplicidad || '').toString().trim(),
                 estado: estadoInfo.estado,
                 estadoTexto: estadoInfo.estadoTexto,
                 motivoInterrupcion: row.MotivoInterrup || '',
@@ -967,17 +970,20 @@ async function precacheRecursos() {
         const request = new sql.Request(connection);
         request.timeout = 30000;
 
+        // OJO: esta query duplica la de /api/recursos y pisa el mismo caché.
+        // Si se agrega o saca una columna allá, hay que hacerlo también acá.
         const result = await request.query(`
-            SELECT Recurso, Estado, MotivoInterrup, Operarios, OpEnCurso,
+            SELECT Recurso, Multiplicidad, Estado, MotivoInterrup, Operarios, OpEnCurso,
                    OpPendientes, Producto, KgAcumDelDia, MinsInterrupDelDia, MinsEstadoActual
-            FROM GCWin_V_EstadoRecursosCables ORDER BY Recurso
+            FROM GCWin_V_EstadoRecursosCables ORDER BY Recurso, TRY_CAST(Multiplicidad AS INT)
         `);
 
         const recursos = result.recordset.map(row => {
             const recursoData = { Operarios: row.Operarios, Estado: row.Estado, MotivoInterrup: row.MotivoInterrup };
             const estadoInfo = determinarEstadoRecurso(recursoData);
             return {
-                numero: row.Recurso, estado: estadoInfo.estado, estadoTexto: estadoInfo.estadoTexto,
+                numero: row.Recurso, multiplicidad: (row.Multiplicidad || '').toString().trim(),
+                estado: estadoInfo.estado, estadoTexto: estadoInfo.estadoTexto,
                 motivoInterrupcion: row.MotivoInterrup || '', operarios: row.Operarios || 0,
                 opEnCurso: row.OpEnCurso || 'Sin OP', opPendientes: row.OpPendientes || 0,
                 producto: row.Producto || 'Sin producto', kgAcumulados: parseFloat(row.KgAcumDelDia) || 0,

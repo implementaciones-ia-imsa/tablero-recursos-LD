@@ -507,6 +507,8 @@
 
         .tabs-header {
             display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
             background-color: var(--color-card);
             border-radius: 12px 12px 0 0;
             overflow: hidden;
@@ -514,17 +516,18 @@
         }
 
         .tab-button {
-            flex: 1;
-            padding: 15px 20px;
+            flex: 1 1 150px;
+            padding: 13px 12px;
             background: none;
             border: none;
             font-family: 'Montserrat', sans-serif;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             color: #64748b;
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
+            white-space: nowrap;
         }
 
         .tab-button:hover {
@@ -658,6 +661,13 @@
          }
 
          .metric-sections {
+             display: flex;
+             flex-direction: column;
+             gap: 8px;
+         }
+
+         /* Lista de interrupciones por sección (generada dinámicamente) */
+         #interrupciones-lista {
              display: flex;
              flex-direction: column;
              gap: 8px;
@@ -956,61 +966,15 @@
                     </div>
                         
                         <div class="tabs-container">
-                            <div class="tabs-header">
-                                <button class="tab-button active" data-section="1">CABLES - SECCIÓN 1</button>
-                                <button class="tab-button" data-section="2">CABLES - SECCIÓN 2</button>
-                                <button class="tab-button" data-section="3">CABLES - SECCIÓN 3</button>
-                                <button class="tab-button" data-section="4">CABLES - SECCIÓN 4</button>
-                                <button class="tab-button" data-section="5">CABLES - SECCIÓN 5</button>
+                            <!-- Las pestañas y sus contenidos se generan dinámicamente
+                                 a partir de las secciones presentes en la vista GCWin_V_EstadoRecursosCables -->
+                            <div class="tabs-header" id="tabs-header">
                                 <button class="autoplay-button" id="autoplay-button" title="Cambio automático cada 30s">
                                     🔄 AUTO
                                 </button>
                         </div>
 
-                            <div class="tab-content active" id="seccion-1">
-                                <div class="section-stats" id="stats-1"></div>
-                                <div class="grid-container" id="recursos-container-1">
-                                    <div class="loading-message">
-                                        <p>Cargando recursos de Sección 1...</p>
-                        </div>
-                        </div>
-                        </div>
-
-                            <div class="tab-content" id="seccion-2">
-                                <div class="section-stats" id="stats-2"></div>
-                                <div class="grid-container" id="recursos-container-2">
-                                    <div class="loading-message">
-                                        <p>Cargando recursos de Sección 2...</p>
-                        </div>
-                        </div>
-                        </div>
-
-                            <div class="tab-content" id="seccion-3">
-                                <div class="section-stats" id="stats-3"></div>
-                                <div class="grid-container" id="recursos-container-3">
-                                    <div class="loading-message">
-                                        <p>Cargando recursos de Sección 3...</p>
-                        </div>
-                        </div>
-                        </div>
-
-                            <div class="tab-content" id="seccion-4">
-                                <div class="section-stats" id="stats-4"></div>
-                                <div class="grid-container" id="recursos-container-4">
-                                    <div class="loading-message">
-                                        <p>Cargando recursos de Sección 4...</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="tab-content" id="seccion-5">
-                                <div class="section-stats" id="stats-5"></div>
-                                <div class="grid-container" id="recursos-container-5">
-                                    <div class="loading-message">
-                                        <p>Cargando recursos de Sección 5...</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <div id="tabs-body"></div>
                         </div>
                         </div>
                         </div>
@@ -1052,26 +1016,8 @@
                             <div class="metric-title">Tiempo Total de Interrupciones</div>
                             <div class="metric-subtitle">(Sector Cables)</div>
                             <div class="metric-sections">
-                                <div class="metric-section">
-                                    <span class="section-label">Sección 1:</span>
-                                    <span class="metric-value" id="interrupciones-1">0.0 hrs</span>
-                </div>
-                                <div class="metric-section">
-                                    <span class="section-label">Sección 2:</span>
-                                    <span class="metric-value" id="interrupciones-2">0.0 hrs</span>
-            </div>
-                                <div class="metric-section">
-                                    <span class="section-label">Sección 3:</span>
-                                    <span class="metric-value" id="interrupciones-3">0.0 hrs</span>
-                                </div>
-                                <div class="metric-section">
-                                    <span class="section-label">Sección 4:</span>
-                                    <span class="metric-value" id="interrupciones-4">0.0 hrs</span>
-                                </div>
-                                <div class="metric-section">
-                                    <span class="section-label">Sección 5:</span>
-                                    <span class="metric-value" id="interrupciones-5">0.0 hrs</span>
-                                </div>
+                                <!-- Una fila por sección, generadas dinámicamente -->
+                                <div id="interrupciones-lista"></div>
                                 <div class="metric-section total">
                                     <span class="section-label">Total General:</span>
                                     <span class="metric-value" id="interrupciones-total">0.0 hrs</span>
@@ -1196,17 +1142,47 @@
         let recursos = [];
         let lastUpdateTime = null;
         let isConnected = false;
-        const SECCIONES = [1, 2, 3, 4, 5];
-        // Secciones con objetivo de Kg (Trefilería y CTC no tienen objetivo medible)
-        const SECCIONES_CON_OBJETIVO = [1, 2, 3];
-        let recursosPorSeccion = {
-            1: [],
-            2: [],
-            3: [],
-            4: [],
-            5: []
+        // La sección de un recurso sale de su número: 102 → 1, 605 → 6, 1008 → 10.
+        // Los nombres son solo la etiqueta de la pestaña; si aparece una sección
+        // nueva en la vista y no está acá, se muestra igual como "SECCIÓN N".
+        const NOMBRES_SECCION = {
+            1:  'CABLES - SECCIÓN 1',
+            2:  'CABLES - SECCIÓN 2',
+            3:  'CABLES - SECCIÓN 3',
+            4:  'CABLES - SECCIÓN 4',
+            5:  'CTC',
+            6:  'ESMALTADO',
+            7:  'RESINAS Y PVC',
+            10: 'CCR'
         };
-        let currentSection = 1;
+        // Orden fijo de las pestañas conocidas; las secciones nuevas que aparezcan
+        // en los datos se agregan al final automáticamente.
+        const SECCIONES_BASE = [1, 2, 3, 4, 5, 6, 7, 10];
+        let SECCIONES = [...SECCIONES_BASE];
+        // Secciones con objetivo de Kg (Trefilería, CTC, Esmaltado, Compuestos y
+        // Fundición no tienen objetivo medible en Kg)
+        const SECCIONES_CON_OBJETIVO = [1, 2, 3];
+        let recursosPorSeccion = {};
+        let currentSection = SECCIONES[0];
+
+        function nombreSeccion(seccion) {
+            return NOMBRES_SECCION[seccion] || `SECCIÓN ${seccion}`;
+        }
+
+        // 102 → 1 | 605 → 6 | 720 → 7 | 1008 → 10
+        function seccionDeRecurso(numero) {
+            const n = parseInt(String(numero).trim(), 10);
+            if (!Number.isFinite(n) || n < 100) return null;
+            return Math.floor(n / 100);
+        }
+
+        // Identificador visible del recurso: los recursos múltiples (esmaltado)
+        // devuelven una fila por posición, ej. 602 posiciones 1 a 6
+        function idRecurso(recurso) {
+            return recurso.multiplicidad
+                ? `${recurso.numero}/${recurso.multiplicidad}`
+                : `${recurso.numero}`;
+        }
         let objetivosPorSeccion = {
             1: 0,
             2: 0,
@@ -1329,7 +1305,7 @@
             const tiempoFormateado = formatearTiempo(recurso.minutosEstadoActual);
 
             div.innerHTML = `
-                <div class="resource-number">${recurso.numero}</div>
+                <div class="resource-number">${idRecurso(recurso)}</div>
                 <div class="resource-product">${recurso.producto}</div>
                 <div class="resource-time">Tiempo: ${tiempoFormateado}</div>
                 <div class="resource-info">OP: ${recurso.opEnCurso}</div>
@@ -1375,21 +1351,89 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             }
         }
 
-        // Agrupar recursos por sección (1-3 cables, 4 trefilería 401-419, 5 CTC 501-503)
+        // Construir las pestañas (botones + contenedores) a partir de SECCIONES
+        function construirPestanas() {
+            const header = document.getElementById('tabs-header');
+            const body = document.getElementById('tabs-body');
+            const autoplayBtn = document.getElementById('autoplay-button');
+
+            header.querySelectorAll('.tab-button').forEach(btn => btn.remove());
+            body.innerHTML = '';
+
+            SECCIONES.forEach(seccion => {
+                const btn = document.createElement('button');
+                btn.className = 'tab-button';
+                btn.setAttribute('data-section', seccion);
+                btn.textContent = nombreSeccion(seccion);
+                btn.addEventListener('click', () => {
+                    // Si el autoplay está activo y el usuario hace click manual, detenerlo
+                    if (autoplayEnabled) detenerAutoplay();
+                    cambiarPestana(seccion);
+                });
+                header.insertBefore(btn, autoplayBtn);
+
+                const content = document.createElement('div');
+                content.className = 'tab-content';
+                content.id = `seccion-${seccion}`;
+                content.innerHTML = `
+                    <div class="section-stats" id="stats-${seccion}"></div>
+                    <div class="grid-container" id="recursos-container-${seccion}">
+                        <div class="loading-message">
+                            <p>Cargando recursos de Sección ${seccion}...</p>
+                        </div>
+                    </div>
+                `;
+                body.appendChild(content);
+            });
+
+            if (!SECCIONES.includes(currentSection)) currentSection = SECCIONES[0];
+            cambiarPestana(currentSection);
+        }
+
+        // Construir las filas de "Tiempo Total de Interrupciones" por sección
+        function construirMetricasInterrupciones() {
+            document.getElementById('interrupciones-lista').innerHTML = SECCIONES.map(seccion => `
+                <div class="metric-section">
+                    <span class="section-label">Sección ${seccion}:</span>
+                    <span class="metric-value" id="interrupciones-${seccion}">0.0 hrs</span>
+                </div>
+            `).join('');
+        }
+
+        // Agrupar recursos por sección según el número de recurso
+        // (1-3 cables, 4 trefilería, 5 CTC, 6 esmaltado, 7 compuestos, 10 fundición)
         function agruparRecursosPorSeccion() {
-            recursosPorSeccion = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+            // Si la vista trae una sección que todavía no tiene pestaña, se crea sola
+            const nuevas = [];
+            recursos.forEach(recurso => {
+                const seccion = seccionDeRecurso(recurso.numero);
+                if (seccion && !SECCIONES.includes(seccion) && !nuevas.includes(seccion)) {
+                    nuevas.push(seccion);
+                }
+            });
+
+            if (nuevas.length > 0) {
+                nuevas.sort((a, b) => a - b);
+                SECCIONES = [...SECCIONES, ...nuevas];
+                console.log(`🆕 Secciones nuevas detectadas en la vista: ${nuevas.join(', ')}`);
+                construirPestanas();
+                construirMetricasInterrupciones();
+            }
+
+            recursosPorSeccion = {};
+            SECCIONES.forEach(seccion => { recursosPorSeccion[seccion] = []; });
 
             recursos.forEach(recurso => {
-                const primerDigito = parseInt(recurso.numero.toString().trim().charAt(0));
-                if (SECCIONES.includes(primerDigito)) {
-                    recursosPorSeccion[primerDigito].push(recurso);
+                const seccion = seccionDeRecurso(recurso.numero);
+                if (recursosPorSeccion[seccion]) {
+                    recursosPorSeccion[seccion].push(recurso);
                 }
             });
         }
 
         // Calcular estadísticas por sección
         function calcularEstadisticasSeccion(seccion) {
-            const recursosSeccion = recursosPorSeccion[seccion];
+            const recursosSeccion = recursosPorSeccion[seccion] || [];
             const stats = {
                 total: recursosSeccion.length,
                 produciendo: 0,
@@ -1426,7 +1470,8 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
         function renderEstadisticasSeccion(seccion) {
             const stats = calcularEstadisticasSeccion(seccion);
             const statsContainer = document.getElementById(`stats-${seccion}`);
-            
+            if (!statsContainer) return;
+
             if (stats.total === 0) {
                 statsContainer.innerHTML = '<div class="stat-item">No hay recursos en esta sección</div>';
                 return;
@@ -1445,8 +1490,9 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
         // Renderizar recursos por sección
         function renderRecursosSeccion(seccion) {
             const container = document.getElementById(`recursos-container-${seccion}`);
-            const recursosSeccion = recursosPorSeccion[seccion];
-            
+            if (!container) return;
+            const recursosSeccion = recursosPorSeccion[seccion] || [];
+
             if (recursosSeccion.length === 0) {
                 container.innerHTML = '<div class="loading-message"><p>No hay recursos en esta sección</p></div>';
                 return;
@@ -1461,16 +1507,24 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
 
         // Calcular métricas por sección
         function calcularMetricasSeccion(seccion) {
-            const recursosSeccion = recursosPorSeccion[seccion];
-            
-            let totalKgActual = 0;
+            const recursosSeccion = recursosPorSeccion[seccion] || [];
+
+            // Los Kg acumulados vienen por recurso (se repiten en cada posición de
+            // las máquinas múltiples), así que se cuentan una sola vez por recurso.
+            // Los minutos de interrupción sí son por posición y se suman.
+            const kgPorRecurso = new Map();
             let totalMinutosInterrupcion = 0;
-            
+
             recursosSeccion.forEach(recurso => {
-                totalKgActual += recurso.kgAcumulados || 0;
+                const kg = recurso.kgAcumulados || 0;
+                const previo = kgPorRecurso.get(recurso.numero) || 0;
+                kgPorRecurso.set(recurso.numero, Math.max(previo, kg));
                 totalMinutosInterrupcion += recurso.minutosInterrupcion || 0;
             });
-            
+
+            let totalKgActual = 0;
+            kgPorRecurso.forEach(kg => { totalKgActual += kg; });
+
             const horasInterrupcion = totalMinutosInterrupcion / 60;
             
             return {
@@ -1556,9 +1610,12 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
             // Agregar clase active al botón y contenido seleccionado
-            document.querySelector(`[data-section="${seccion}"]`).classList.add('active');
-            document.getElementById(`seccion-${seccion}`).classList.add('active');
-            
+            const btn = document.querySelector(`.tab-button[data-section="${seccion}"]`);
+            const content = document.getElementById(`seccion-${seccion}`);
+            if (!btn || !content) return;
+            btn.classList.add('active');
+            content.classList.add('active');
+
             currentSection = seccion;
         }
 
@@ -1610,19 +1667,8 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
         }
 
         // Configurar eventos de pestañas
+        // (el click de cada pestaña se engancha en construirPestanas)
         function configurarEventosPestanas() {
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const seccion = parseInt(e.target.getAttribute('data-section'));
-                    // Si el autoplay está activo y el usuario hace click manual, detenerlo
-                    if (autoplayEnabled) {
-                        detenerAutoplay();
-                    }
-                    cambiarPestana(seccion);
-                });
-            });
-            
-            // Configurar botón de autoplay
             document.getElementById('autoplay-button').addEventListener('click', toggleAutoplay);
         }
 
@@ -1710,7 +1756,8 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
 
             recursos.forEach(recurso => {
                 const minutosEstado = recurso.minutosEstadoActual || 0;
-                const tag = `recurso-${recurso.numero}`;
+                const id = idRecurso(recurso);
+                const tag = `recurso-${id}`;
 
                 // Alerta: Máquina detenida > 30 min
                 if (notificationConfig.detenido && 
@@ -1718,7 +1765,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
                     minutosEstado > 30) {
                     sendNotification(
                         '⚠️ Máquina Detenida',
-                        `Recurso ${recurso.numero} lleva ${formatearTiempo(minutosEstado)} detenido`,
+                        `Recurso ${id} lleva ${formatearTiempo(minutosEstado)} detenido`,
                         `${tag}-detenido`,
                         true
                     );
@@ -1730,7 +1777,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
                     minutosEstado > 15) {
                     sendNotification(
                         '👤 Sin Operario',
-                        `Recurso ${recurso.numero} sin operario por ${formatearTiempo(minutosEstado)}`,
+                        `Recurso ${id} sin operario por ${formatearTiempo(minutosEstado)}`,
                         `${tag}-operario`
                     );
                 }
@@ -1741,7 +1788,7 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
                     minutosEstado > 120) {
                     sendNotification(
                         '🔧 Mantenimiento Prolongado',
-                        `Recurso ${recurso.numero} en mantenimiento por ${formatearTiempo(minutosEstado)}`,
+                        `Recurso ${id} en mantenimiento por ${formatearTiempo(minutosEstado)}`,
                         `${tag}-mantenimiento`
                     );
                 }
@@ -1927,6 +1974,8 @@ Minutos de interrupción: ${recurso.minutosInterrupcion}`;
 
             updateDateTime();
             initializeUserInfo();
+            construirPestanas();
+            construirMetricasInterrupciones();
             configurarEventosPestanas();
             configurarEventosNotificaciones();
 
